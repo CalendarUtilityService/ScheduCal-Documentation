@@ -1,0 +1,492 @@
+{
+	"info": {
+		"_postman_id": "schedcal-api-v1-2025",
+		"name": "ScheduCal API v1",
+		"description": "Complete API collection for ScheduCal calendar scheduling service.\n\n## Authentication\nAll customer endpoints require `apiKey` and `apiSecret` in the request body.\n\n## New Features (December 2025)\n- `gmailFirstInvite` field in Create and Invite responses indicates first-time Gmail user priming\n\n## Response Format\nAll responses follow this structure:\n```json\n{\n  \"success\": true|false,\n  \"message\": \"Human readable message\",\n  \"data\": { ... },\n  \"apiVersion\": \"v1\"\n}\n```",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Customer Endpoints",
+			"description": "Customer-facing appointment operations using API credentials",
+			"item": [
+				{
+					"name": "Create Appointment",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"// Generate tomorrow's date for appointment",
+									"var moment = require('moment');",
+									"const tomorrow = moment().add(1, 'days');",
+									"const startTime = tomorrow.hour(14).minute(0).second(0);",
+									"const endTime = tomorrow.hour(15).minute(0).second(0);",
+									"",
+									"pm.environment.set('appointmentStart', startTime.format('YYYY-MM-DDTHH:mm:ss'));",
+									"pm.environment.set('appointmentEnd', endTime.format('YYYY-MM-DDTHH:mm:ss'));"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Appointment created successfully', function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"var responseJson = pm.response.json();",
+									"if (responseJson.success && responseJson.data && responseJson.data.appointmentId) {",
+									"    pm.environment.set('appointmentId', responseJson.data.appointmentId);",
+									"    console.log('Appointment Created: ' + responseJson.data.appointmentId);",
+									"    ",
+									"    pm.test('Appointment ID returned', function () {",
+									"        pm.expect(responseJson.data.appointmentId).to.be.a('string').and.not.be.empty;",
+									"    });",
+									"    ",
+									"    pm.test('gmailFirstInvite field present', function () {",
+									"        pm.expect(responseJson.data).to.have.property('gmailFirstInvite');",
+									"    });",
+									"    ",
+									"    if (responseJson.data.gmailFirstInvite) {",
+									"        console.log('Note: First Gmail invite - user may need to check spam/approve calendar');",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"apiKey\": \"{{apiKey}}\",\n    \"apiSecret\": \"{{apiSecret}}\",\n    \"appointmentSubject\": \"Team Meeting\",\n    \"appointmentBody\": \"<p>Weekly sync meeting</p>\",\n    \"appointmentStart\": \"{{appointmentStart}}\",\n    \"appointmentEnd\": \"{{appointmentEnd}}\",\n    \"appointmentTimeZone\": \"America/Los_Angeles\",\n    \"appointmentLocation\": \"Conference Room A\",\n    \"name\": \"John Doe\",\n    \"address\": \"john.doe@example.com\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/appointments",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "appointments"]
+						},
+						"description": "Create a new calendar appointment with optional initial invitee.\n\n## Request Fields\n| Field | Type | Required | Description |\n|-------|------|----------|-------------|\n| apiKey | string | Yes | Your API key |\n| apiSecret | string | Yes | Your API secret |\n| appointmentSubject | string | No | Subject/title |\n| appointmentBody | string | No | HTML body content |\n| appointmentStart | string | Yes | ISO 8601 start time |\n| appointmentEnd | string | Yes | ISO 8601 end time |\n| appointmentTimeZone | string | Yes | Time zone |\n| appointmentLocation | string | No | Location |\n| name | string | No | Initial invitee name |\n| address | string | No | Initial invitee email |\n\n## Response\n```json\n{\n  \"success\": true,\n  \"message\": \"Appointment created successfully\",\n  \"data\": {\n    \"appointmentId\": \"AAMkAGI2...\",\n    \"subject\": \"Team Meeting\",\n    \"start\": \"2024-01-15T10:00:00\",\n    \"end\": \"2024-01-15T11:00:00\",\n    \"timeZone\": \"America/Los_Angeles\",\n    \"location\": \"Conference Room A\",\n    \"inviteeCount\": 1,\n    \"hasInitialInvitee\": true,\n    \"gmailFirstInvite\": true,\n    \"dateCreated\": \"2024-01-10T15:30:00Z\"\n  },\n  \"apiVersion\": \"v1\"\n}\n```\n\n### gmailFirstInvite Field\nWhen `true`, indicates this is the first invitation to a Gmail-hosted email from your account. The invitee may need to check spam or approve adding to calendar."
+					}
+				},
+				{
+					"name": "Update Appointment",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Appointment updated successfully', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"var responseJson = pm.response.json();",
+									"pm.test('Update response is valid', function () {",
+									"    pm.expect(responseJson.success).to.be.true;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"apiKey\": \"{{apiKey}}\",\n    \"apiSecret\": \"{{apiSecret}}\",\n    \"appointmentSubject\": \"Team Meeting (Rescheduled)\",\n    \"appointmentStart\": \"2024-01-16T10:00:00\",\n    \"appointmentEnd\": \"2024-01-16T11:00:00\",\n    \"appointmentTimeZone\": \"America/Los_Angeles\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/appointments/{{appointmentId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "appointments", "{{appointmentId}}"]
+						},
+						"description": "Update an existing appointment. All invitees are notified of changes.\n\n## Request Fields\n| Field | Type | Required | Description |\n|-------|------|----------|-------------|\n| apiKey | string | Yes | Your API key |\n| apiSecret | string | Yes | Your API secret |\n| appointmentSubject | string | No | Updated subject |\n| appointmentBody | string | No | Updated body |\n| appointmentStart | string | No | Updated start time |\n| appointmentEnd | string | No | Updated end time |\n| appointmentTimeZone | string | No | Updated time zone |\n| appointmentLocation | string | No | Updated location |\n\n## Response\n```json\n{\n  \"success\": true,\n  \"message\": \"Appointment updated successfully\",\n  \"data\": {\n    \"appointmentId\": \"AAMkAGI2...\",\n    \"subject\": \"Team Meeting (Rescheduled)\",\n    \"dateUpdated\": \"2024-01-11T09:15:00Z\"\n  },\n  \"apiVersion\": \"v1\"\n}\n```"
+					}
+				},
+				{
+					"name": "Cancel Appointment",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Appointment cancelled successfully', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"var responseJson = pm.response.json();",
+									"pm.test('Cancel response is valid', function () {",
+									"    pm.expect(responseJson.success).to.be.true;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"apiKey\": \"{{apiKey}}\",\n    \"apiSecret\": \"{{apiSecret}}\",\n    \"comment\": \"Meeting cancelled due to scheduling conflict\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/appointments/{{appointmentId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "appointments", "{{appointmentId}}"]
+						},
+						"description": "Cancel an appointment. All participants are notified.\n\n## Request Fields\n| Field | Type | Required | Description |\n|-------|------|----------|-------------|\n| apiKey | string | Yes | Your API key |\n| apiSecret | string | Yes | Your API secret |\n| comment | string | No | Cancellation message |\n\n## Response\n```json\n{\n  \"success\": true,\n  \"message\": \"Appointment cancelled successfully\",\n  \"data\": {\n    \"appointmentId\": \"AAMkAGI2...\",\n    \"subject\": \"Team Meeting\",\n    \"dateCanceled\": \"2024-01-11T14:00:00Z\",\n    \"isActive\": false,\n    \"inviteeCount\": 0,\n    \"originalInviteeCount\": 3\n  },\n  \"apiVersion\": \"v1\"\n}\n```"
+					}
+				},
+				{
+					"name": "Send Invitation",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Invitation sent successfully', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"var responseJson = pm.response.json();",
+									"pm.test('Invitation response is valid', function () {",
+									"    pm.expect(responseJson.success).to.be.true;",
+									"});",
+									"",
+									"pm.test('gmailFirstInvite field present', function () {",
+									"    pm.expect(responseJson.data).to.have.property('gmailFirstInvite');",
+									"});",
+									"",
+									"if (responseJson.data && responseJson.data.gmailFirstInvite) {",
+									"    console.log('Note: First Gmail invite - user may need to check spam/approve calendar');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"apiKey\": \"{{apiKey}}\",\n    \"apiSecret\": \"{{apiSecret}}\",\n    \"name\": \"Jane Smith\",\n    \"address\": \"jane.smith@example.com\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/appointments/{{appointmentId}}/invitations",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "appointments", "{{appointmentId}}", "invitations"]
+						},
+						"description": "Add an attendee to an existing appointment.\n\n## Request Fields\n| Field | Type | Required | Description |\n|-------|------|----------|-------------|\n| apiKey | string | Yes | Your API key |\n| apiSecret | string | Yes | Your API secret |\n| name | string | Yes | Invitee's name |\n| address | string | Yes | Invitee's email |\n\n## Response\n```json\n{\n  \"success\": true,\n  \"message\": \"Invitation sent successfully\",\n  \"data\": {\n    \"appointmentId\": \"AAMkAGI2...\",\n    \"invitee\": \"Jane Smith\",\n    \"email\": \"jane.smith@example.com\",\n    \"totalInvitees\": 2,\n    \"appointmentSubject\": \"Team Meeting\",\n    \"gmailFirstInvite\": false\n  },\n  \"apiVersion\": \"v1\"\n}\n```\n\n### gmailFirstInvite Field\nWhen `true`, indicates this is the first invitation to a Gmail-hosted email from your account. The invitee may need to check spam or approve adding to calendar."
+					}
+				}
+			]
+		},
+		{
+			"name": "Webhook Management",
+			"description": "Register and manage webhook endpoints to receive real-time notifications about appointment events.",
+			"item": [
+				{
+					"name": "Register Webhook",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Webhook registered successfully', function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"var responseJson = pm.response.json();",
+									"if (responseJson.success && responseJson.data) {",
+									"    pm.environment.set('webhookId', responseJson.data.webhookId);",
+									"    pm.environment.set('webhookSecret', responseJson.data.secret);",
+									"    console.log('Webhook ID: ' + responseJson.data.webhookId);",
+									"    console.log('Webhook Secret: ' + responseJson.data.secret);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"apiKey\": \"{{apiKey}}\",\n    \"apiSecret\": \"{{apiSecret}}\",\n    \"webhookUrl\": \"https://your-server.com/webhook\",\n    \"eventTypes\": [\"attendee.responded\", \"appointment.updated\", \"appointment.canceled\"]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/webhooks",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "webhooks"]
+						},
+						"description": "Register a webhook endpoint to receive real-time notifications.\n\n## Request Fields\n| Field | Type | Required | Description |\n|-------|------|----------|-------------|\n| apiKey | string | Yes | Your API key |\n| apiSecret | string | Yes | Your API secret |\n| webhookUrl | string | Yes | HTTPS URL to receive webhooks |\n| eventTypes | array | Yes | Events to subscribe to |\n\n## Event Types\n| Event | Description |\n|-------|-------------|\n| `attendee.responded` | Attendee accepts, declines, or tentatively accepts |\n| `attendee.proposed_new_time` | Attendee proposes alternate time |\n| `appointment.updated` | Appointment time/location/subject changed |\n| `appointment.canceled` | Appointment deleted |\n\n## Response\n```json\n{\n  \"success\": true,\n  \"message\": \"Webhook registered successfully\",\n  \"data\": {\n    \"webhookId\": \"49856464-9c29-43b0-ad45-a8a9812d82bf\",\n    \"secret\": \"whsec_abc123...\",\n    \"webhookUrl\": \"https://your-server.com/webhook\",\n    \"eventTypes\": [\"attendee.responded\", \"appointment.updated\", \"appointment.canceled\"]\n  },\n  \"apiVersion\": \"v1\"\n}\n```\n\n**Important:** Save the `secret` for signature verification. It cannot be retrieved later."
+					}
+				},
+				{
+					"name": "List Webhooks",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Webhooks listed successfully', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"var responseJson = pm.response.json();",
+									"pm.test('Response contains webhooks array', function () {",
+									"    pm.expect(responseJson.data.webhooks).to.be.an('array');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/webhooks?apiKey={{apiKey}}&apiSecret={{apiSecret}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "webhooks"],
+							"query": [
+								{
+									"key": "apiKey",
+									"value": "{{apiKey}}"
+								},
+								{
+									"key": "apiSecret",
+									"value": "{{apiSecret}}"
+								}
+							]
+						},
+						"description": "List all registered webhooks for your account.\n\n## Response\n```json\n{\n  \"success\": true,\n  \"data\": {\n    \"webhooks\": [\n      {\n        \"webhookId\": \"49856464-9c29-43b0-ad45-a8a9812d82bf\",\n        \"webhookUrl\": \"https://your-server.com/webhook\",\n        \"eventTypes\": [\"attendee.responded\", \"appointment.updated\"],\n        \"isActive\": true,\n        \"consecutiveFailures\": 0,\n        \"dateCreated\": \"2026-01-01T12:00:00Z\"\n      }\n    ]\n  },\n  \"apiVersion\": \"v1\"\n}\n```"
+					}
+				},
+				{
+					"name": "Update Webhook",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Webhook updated successfully', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"var responseJson = pm.response.json();",
+									"pm.test('Update response is valid', function () {",
+									"    pm.expect(responseJson.success).to.be.true;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"apiKey\": \"{{apiKey}}\",\n    \"apiSecret\": \"{{apiSecret}}\",\n    \"eventTypes\": [\"attendee.responded\"],\n    \"isActive\": true\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/webhooks/{{webhookId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "webhooks", "{{webhookId}}"]
+						},
+						"description": "Update webhook configuration.\n\n## Request Fields\n| Field | Type | Required | Description |\n|-------|------|----------|-------------|\n| apiKey | string | Yes | Your API key |\n| apiSecret | string | Yes | Your API secret |\n| eventTypes | array | No | Updated event subscriptions |\n| isActive | boolean | No | Enable/disable webhook |\n\n## Response\n```json\n{\n  \"success\": true,\n  \"message\": \"Webhook updated successfully\",\n  \"data\": {\n    \"webhookId\": \"49856464-9c29-43b0-ad45-a8a9812d82bf\",\n    \"eventTypes\": [\"attendee.responded\"],\n    \"isActive\": true\n  },\n  \"apiVersion\": \"v1\"\n}\n```"
+					}
+				},
+				{
+					"name": "Delete Webhook",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Webhook deleted successfully', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"var responseJson = pm.response.json();",
+									"pm.test('Delete response is valid', function () {",
+									"    pm.expect(responseJson.success).to.be.true;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/webhooks/{{webhookId}}?apiKey={{apiKey}}&apiSecret={{apiSecret}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "webhooks", "{{webhookId}}"],
+							"query": [
+								{
+									"key": "apiKey",
+									"value": "{{apiKey}}"
+								},
+								{
+									"key": "apiSecret",
+									"value": "{{apiSecret}}"
+								}
+							]
+						},
+						"description": "Delete a registered webhook.\n\n## Response\n```json\n{\n  \"success\": true,\n  \"message\": \"Webhook deleted successfully\",\n  \"apiVersion\": \"v1\"\n}\n```"
+					}
+				},
+				{
+					"name": "Regenerate Webhook Secret",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Secret regenerated successfully', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"var responseJson = pm.response.json();",
+									"if (responseJson.success && responseJson.data && responseJson.data.secret) {",
+									"    pm.environment.set('webhookSecret', responseJson.data.secret);",
+									"    console.log('New Webhook Secret: ' + responseJson.data.secret);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"apiKey\": \"{{apiKey}}\",\n    \"apiSecret\": \"{{apiSecret}}\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/webhooks/{{webhookId}}/regenerate-secret",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "webhooks", "{{webhookId}}", "regenerate-secret"]
+						},
+						"description": "Regenerate the HMAC signing secret for a webhook. Use this if you suspect the secret has been compromised.\n\n## Response\n```json\n{\n  \"success\": true,\n  \"message\": \"Webhook secret regenerated\",\n  \"data\": {\n    \"webhookId\": \"49856464-9c29-43b0-ad45-a8a9812d82bf\",\n    \"secret\": \"whsec_newSecret123...\"\n  },\n  \"apiVersion\": \"v1\"\n}\n```\n\n**Important:** After regenerating, update your server to use the new secret immediately. The old secret will no longer work."
+					}
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "https://api.scheducal.com",
+			"type": "string"
+		},
+		{
+			"key": "apiKey",
+			"value": "your-api-key",
+			"type": "string"
+		},
+		{
+			"key": "apiSecret",
+			"value": "your-api-secret",
+			"type": "string"
+		},
+		{
+			"key": "appointmentId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "webhookId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "webhookSecret",
+			"value": "",
+			"type": "string"
+		}
+	]
+}
