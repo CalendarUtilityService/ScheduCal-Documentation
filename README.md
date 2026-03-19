@@ -2,10 +2,14 @@
 
 Official documentation for the ScheduCal calendar scheduling API.
 
+ScheduCal is a **fully managed calendar invitation service** built on Microsoft Exchange and the Microsoft Graph API. Your integration is three API calls (Create, Update, Cancel) and one webhook. ScheduCal handles Exchange delivery, ICS compliance (UID persistence, SEQUENCE incrementing, cancellation METHOD), and cross-client compatibility — including Gmail priming.
+
 ## Documentation
 
+- [Architecture Overview](architecture.md) - How ScheduCal works: Exchange/Graph delivery layer, ICS compliance semantics, Gmail priming
 - [API Reference](api-reference.md) - Core API endpoints for appointments
 - [Webhooks Guide](webhooks.md) - Real-time event notifications
+- [MS Graph & Exchange Strategy](strategy-pivot-msgraph-exchange.md) - Architecture deep dive
 - [Postman Collection](ScheduCal-API.postman_collection.json) - Import into Postman for testing
 
 ## Quick Start

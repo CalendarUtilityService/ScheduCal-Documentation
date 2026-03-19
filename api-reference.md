@@ -4,6 +4,10 @@
 
 ScheduCal provides a REST API for calendar scheduling operations. Upon registration, developers receive an API key and secret along with the REST API endpoint.
 
+ScheduCal is a **fully managed calendar invitation service** built on Microsoft Exchange and the Microsoft Graph API. Your integration is three API calls (Create, Update, Cancel) and one webhook — ScheduCal handles all Exchange/Graph complexity, ICS compliance semantics, and cross-client delivery.
+
+See [Architecture Overview](architecture.md) for a full explanation of the delivery layer, ICS compliance semantics, and Gmail priming infrastructure.
+
 **Base URL:** `https://api.scheducal.com`
 
 ## Authentication
@@ -16,6 +20,16 @@ All API requests require authentication using your API key and secret in the req
   "apiSecret": "your-api-secret"
 }
 ```
+
+## How Delivery Works
+
+When you call Create, Update, or Cancel:
+
+1. ScheduCal creates, updates, or cancels the event directly in Microsoft Exchange via the Graph API
+2. Exchange delivers a standards-compliant calendar invitation with correct RFC 5545 ICS metadata (persistent UID, incremented SEQUENCE, proper cancellation METHOD)
+3. Attendee responses (accept/decline/tentative) flow back through Exchange and are delivered to your webhook
+
+You do not need an Azure AD application, OAuth setup, or any Exchange infrastructure. ScheduCal manages all of this.
 
 ## Date/Time Format Requirements
 
@@ -235,25 +249,45 @@ Adds an attendee to an existing appointment.
 
 ### Gmail First Invite Indicator
 
-When inviting a Gmail user for the first time from your account, the response includes a special field:
+ScheduCal includes required Gmail priming infrastructure for invitations to Gmail addresses. When a Gmail address is invited for the first time from a given account, ScheduCal executes a priming step before delivering the calendar invitation. This step is required to ensure the invitation lands in the attendee's Google Calendar rather than being suppressed by Gmail's spam filters.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `gmailFirstInvite` | boolean | `true` if this is the first invitation sent to a Gmail-hosted address from this account. |
+| `gmailFirstInvite` | boolean | `true` if Gmail priming was executed for this invitation. This is required infrastructure, not an enhancement. |
 
 **When `gmailFirstInvite: true`:**
 - The invitee is using a Gmail-hosted email address
 - This is their first invitation from your account
-- The invitation was sent with enhanced visibility to improve Gmail calendar integration
-- **Recommended**: Display messaging to the user such as "Please check your spam folder and approve adding to calendar"
+- ScheduCal executed a priming step to ensure correct Gmail calendar delivery
+- **Required**: Display the following message to your user: "Please check your spam folder and confirm the calendar invitation"
 
 **When `gmailFirstInvite: false`:**
-- Either the invitee is not using Gmail, or they have already received a previous invitation from your account
-- Normal invitation flow was used
+- The invitee is not using Gmail, or they have already received a prior invitation from your account
+- No priming step was needed; standard Exchange delivery was used
 
 This field appears in responses for:
 - Create Appointment (when `name` and `address` are provided)
 - Send Invitation
+
+See [Architecture: Gmail Priming](architecture.md#gmail-priming-required-infrastructure) for a full explanation.
+
+---
+
+## ICS Calendar Compliance
+
+ScheduCal enforces correct RFC 5545 (iCalendar) semantics automatically. You do not need to track or pass any of these values — ScheduCal manages them transparently.
+
+### UID Persistence
+
+Every appointment is assigned a persistent UID at creation time. This UID is preserved across all updates and the final cancellation. Per RFC 5545, the UID ties all lifecycle events (create → update → cancel) to the same calendar entry. Without UID persistence, attendee calendar clients create duplicate appointments on every update.
+
+### SEQUENCE Incrementing
+
+The `SEQUENCE` counter is incremented on every update per RFC 5545 §3.8.7.4. This signals to attendee calendar clients that a newer version of the event has arrived, so they replace the existing entry rather than create a duplicate.
+
+### Cancellation METHOD
+
+Cancellations are issued with `METHOD:CANCEL` per iTIP (RFC 5546). This is the correct mechanism for removing an event from attendee calendars. A plain cancellation email without the correct iTIP METHOD header is the most common calendar implementation error — it leaves the event as a phantom entry on the attendee's calendar. ScheduCal handles this correctly via Exchange.
 
 ---
 
