@@ -140,11 +140,14 @@ curl -X POST https://api.scheducal.com/api/v1/appointments \
     "location": "https://meet.yourcompany.com/qbr-acme",
     "inviteeCount": 1,
     "hasInitialInvitee": true,
+    "gmailFirstInvite": true,
     "dateCreated": "2026-03-19T14:23:01Z"
   },
   "apiVersion": "v1"
 }
 ```
+
+**`gmailFirstInvite`**: When `true`, the invitee is a Gmail user receiving a calendar invitation from your account for the first time. You should prompt them: *"Please check your spam folder and approve the calendar invitation."* When `false`, no action is needed.
 
 ### JavaScript Example
 
@@ -211,11 +214,14 @@ curl -X POST https://api.scheducal.com/api/v1/appointments/AAMkAGI2.../invitatio
     "invitee": "Mary Jones",
     "email": "mary@acmecorp.com",
     "totalInvitees": 2,
-    "appointmentSubject": "Quarterly Business Review"
+    "appointmentSubject": "Quarterly Business Review",
+    "gmailFirstInvite": false
   },
   "apiVersion": "v1"
 }
 ```
+
+See [Create Appointment](#create-appointment) for `gmailFirstInvite` behavior.
 
 ---
 
