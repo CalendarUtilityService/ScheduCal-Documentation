@@ -1,88 +1,131 @@
-# ScheduCal API Reference
+# ScheduCal API Documentation
 
-## Overview
+ScheduCal delivers real calendar appointments — not email attachments. Your recipients receive native calendar invitations that appear in their calendar app, support RSVP, and behave exactly like appointments sent from any calendar system.
 
-ScheduCal provides a REST API for calendar scheduling operations. Upon registration, developers receive an API key and secret along with the REST API endpoint.
-
-ScheduCal is a **fully managed calendar invitation service** built on Microsoft Exchange and the Microsoft Graph API. Your integration is three API calls (Create, Update, Cancel) and one webhook — ScheduCal handles all Exchange/Graph complexity, ICS compliance semantics, and cross-client delivery.
-
-See [Architecture Overview](architecture.md) for a full explanation of the delivery layer, ICS compliance semantics, and Gmail priming infrastructure.
-
-**Base URL:** `https://api.scheducal.com`
-
-## Authentication
-
-All API requests require authentication using your API key and secret in the request body:
-
-```json
-{
-  "apiKey": "your-api-key",
-  "apiSecret": "your-api-secret"
-}
-```
-
-## How Delivery Works
-
-When you call Create, Update, or Cancel:
-
-1. ScheduCal creates, updates, or cancels the event directly in Microsoft Exchange via the Graph API
-2. Exchange delivers a standards-compliant calendar invitation with correct RFC 5545 ICS metadata (persistent UID, incremented SEQUENCE, proper cancellation METHOD)
-3. Attendee responses (accept/decline/tentative) flow back through Exchange and are delivered to your webhook
-
-You do not need an Azure AD application, OAuth setup, or any Exchange infrastructure. ScheduCal manages all of this.
-
-## Date/Time Format Requirements
-
-- **Dates**: Must use ISO 8601 format (e.g., `"2024-01-09T13:00:00"`)
-- **Time Zones**: Only Microsoft Graph-supported time zones are accepted. See [Microsoft's supported time zones](https://docs.microsoft.com/en-us/graph/api/resources/datetimetimezone).
-
-## Optional Fields
-
-Contact information (name and email address) is optional during appointment creation. This enables use cases like webinars where attendees are added later.
+You call three endpoints and implement one webhook. That is the entire integration.
 
 ---
 
-## Endpoints
+## Table of Contents
 
-### Create Appointment
+1. [Quickstart](#quickstart)
+2. [Authentication](#authentication)
+3. [Create Appointment](#create-appointment)
+4. [Send Invitation](#send-invitation)
+5. [Update Appointment](#update-appointment)
+6. [Cancel Appointment](#cancel-appointment)
+7. [Webhooks](#webhooks)
+8. [Error Handling](#error-handling)
 
-Creates a new calendar appointment.
+---
 
-**Endpoint**: `POST /api/v1/appointments`
+## Quickstart
 
-**Request Body**:
+Get from zero to your first appointment in under 10 minutes.
+
+### 1. Get your API credentials
+
+Log in to your ScheduCal dashboard and navigate to **Settings → API Keys**. Copy your `apiKey` and `apiSecret`. Both are always accessible from the dashboard.
+
+### 2. Create your first appointment
+
+```bash
+curl -X POST https://api.scheducal.com/api/v1/appointments \
+  -H "Content-Type: application/json" \
+  -d '{
+    "apiKey": "YOUR_API_KEY",
+    "apiSecret": "YOUR_API_SECRET",
+    "appointmentSubject": "Intro Call — Acme Corp",
+    "appointmentStart": "2026-04-01T14:00:00",
+    "appointmentEnd": "2026-04-01T14:30:00",
+    "appointmentTimeZone": "America/New_York",
+    "name": "John Doe",
+    "address": "contact@acmecorp.com"
+  }'
+```
+
+The recipient receives a calendar invitation in their inbox. They can accept, decline, or propose a new time — all from their existing calendar app.
+
+### 3. Set up your webhook
+
+Register a webhook endpoint to receive real-time RSVP updates:
+
+```bash
+curl -X POST https://api.scheducal.com/api/v1/webhooks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "apiKey": "YOUR_API_KEY",
+    "apiSecret": "YOUR_API_SECRET",
+    "webhookUrl": "https://yourapp.com/webhooks/scheducal",
+    "eventTypes": ["attendee.responded", "appointment.updated", "appointment.canceled"]
+  }'
+```
+
+Done. Your integration is live.
+
+---
+
+## Authentication
+
+All API requests include your `apiKey` and `apiSecret` in the request body.
+
+```json
+{
+  "apiKey": "YOUR_API_KEY",
+  "apiSecret": "YOUR_API_SECRET",
+  ...
+}
+```
+
+You can manage your credentials from the dashboard under **Settings → API Keys**. Both values are always visible from the dashboard.
+
+**Keep your credentials secret.** Do not commit them to version control or expose them in client-side code.
+
+---
+
+## Create Appointment
+
+```
+POST /api/v1/appointments
+```
+
+Creates a new appointment. Optionally include an initial invitee — additional invitees can be added afterwards via [Send Invitation](#send-invitation).
+
+### Request
+
+```bash
+curl -X POST https://api.scheducal.com/api/v1/appointments \
+  -H "Content-Type: application/json" \
+  -d '{
+    "apiKey": "YOUR_API_KEY",
+    "apiSecret": "YOUR_API_SECRET",
+    "appointmentSubject": "Quarterly Business Review",
+    "appointmentBody": "<p>Q1 2026 review with the Acme team.</p>",
+    "appointmentStart": "2026-04-15T09:00:00",
+    "appointmentEnd": "2026-04-15T10:00:00",
+    "appointmentTimeZone": "America/Los_Angeles",
+    "appointmentLocation": "https://meet.yourcompany.com/qbr-acme",
+    "name": "John Doe",
+    "address": "john@acmecorp.com"
+  }'
+```
+
+### Request Body
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `apiKey` | string | Yes | Your API key |
 | `apiSecret` | string | Yes | Your API secret |
-| `appointmentSubject` | string | No | Subject/title of the appointment |
-| `appointmentBody` | string | No | HTML body content |
-| `appointmentStart` | string | Yes | Start time in ISO 8601 format |
-| `appointmentEnd` | string | Yes | End time in ISO 8601 format |
-| `appointmentTimeZone` | string | Yes | Time zone (e.g., "America/Los_Angeles") |
-| `appointmentLocation` | string | No | Location of the appointment |
-| `name` | string | No | Initial invitee's name |
-| `address` | string | No | Initial invitee's email address |
+| `appointmentStart` | string | Yes | Start time, ISO 8601 format (e.g. `2026-04-15T09:00:00`) |
+| `appointmentEnd` | string | Yes | End time, ISO 8601 format. Must be after start. |
+| `appointmentTimeZone` | string | Yes | IANA time zone name (e.g. `America/New_York`) |
+| `appointmentSubject` | string | No | Appointment title shown to all attendees |
+| `appointmentBody` | string | No | HTML body content shown in the invitation |
+| `appointmentLocation` | string | No | Physical address or meeting URL |
+| `name` | string | No | Initial invitee display name |
+| `address` | string | No | Initial invitee email address |
 
-**Example Request**:
-
-```json
-{
-  "apiKey": "your-api-key",
-  "apiSecret": "your-api-secret",
-  "appointmentSubject": "Team Meeting",
-  "appointmentBody": "<p>Weekly sync meeting</p>",
-  "appointmentStart": "2024-01-15T10:00:00",
-  "appointmentEnd": "2024-01-15T11:00:00",
-  "appointmentTimeZone": "America/Los_Angeles",
-  "appointmentLocation": "Conference Room A",
-  "name": "John Doe",
-  "address": "john.doe@example.com"
-}
-```
-
-**Example Response**:
+### Response
 
 ```json
 {
@@ -90,15 +133,85 @@ Creates a new calendar appointment.
   "message": "Appointment created successfully",
   "data": {
     "appointmentId": "AAMkAGI2...",
-    "subject": "Team Meeting",
-    "start": "2024-01-15T10:00:00",
-    "end": "2024-01-15T11:00:00",
+    "subject": "Quarterly Business Review",
+    "start": "2026-04-15T09:00:00",
+    "end": "2026-04-15T10:00:00",
     "timeZone": "America/Los_Angeles",
-    "location": "Conference Room A",
+    "location": "https://meet.yourcompany.com/qbr-acme",
     "inviteeCount": 1,
     "hasInitialInvitee": true,
-    "gmailFirstInvite": true,
-    "dateCreated": "2024-01-10T15:30:00Z"
+    "dateCreated": "2026-03-19T14:23:01Z"
+  },
+  "apiVersion": "v1"
+}
+```
+
+### JavaScript Example
+
+```javascript
+const response = await fetch("https://api.scheducal.com/api/v1/appointments", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    apiKey: process.env.SCHEDUCAL_API_KEY,
+    apiSecret: process.env.SCHEDUCAL_API_SECRET,
+    appointmentSubject: "Quarterly Business Review",
+    appointmentStart: "2026-04-15T09:00:00",
+    appointmentEnd: "2026-04-15T10:00:00",
+    appointmentTimeZone: "America/Los_Angeles",
+    name: "John Doe",
+    address: "john@acmecorp.com",
+  }),
+});
+
+const result = await response.json();
+const appointmentId = result.data.appointmentId;
+```
+
+---
+
+## Send Invitation
+
+```
+POST /api/v1/appointments/{appointmentId}/invitations
+```
+
+Sends a calendar invitation to an additional attendee for an existing appointment.
+
+### Request
+
+```bash
+curl -X POST https://api.scheducal.com/api/v1/appointments/AAMkAGI2.../invitations \
+  -H "Content-Type: application/json" \
+  -d '{
+    "apiKey": "YOUR_API_KEY",
+    "apiSecret": "YOUR_API_SECRET",
+    "name": "Mary Jones",
+    "address": "mary@acmecorp.com"
+  }'
+```
+
+### Request Body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `apiKey` | string | Yes | Your API key |
+| `apiSecret` | string | Yes | Your API secret |
+| `name` | string | Yes | Invitee display name |
+| `address` | string | Yes | Invitee email address |
+
+### Response
+
+```json
+{
+  "success": true,
+  "message": "Invitation sent successfully",
+  "data": {
+    "appointmentId": "AAMkAGI2...",
+    "invitee": "Mary Jones",
+    "email": "mary@acmecorp.com",
+    "totalInvitees": 2,
+    "appointmentSubject": "Quarterly Business Review"
   },
   "apiVersion": "v1"
 }
@@ -106,39 +219,45 @@ Creates a new calendar appointment.
 
 ---
 
-### Update Appointment
+## Update Appointment
 
-Updates an existing appointment. All invitees are notified of changes.
+```
+PUT /api/v1/appointments/{appointmentId}
+```
 
-**Endpoint**: `PUT /api/v1/appointments/{appointmentId}`
+Updates an existing appointment and notifies all invitees. ScheduCal handles all sequencing internally — attendees receive a proper update notification that replaces the original event in their calendar. Include only the fields you want to change.
 
-**Request Body**:
+### Request
+
+```bash
+curl -X PUT https://api.scheducal.com/api/v1/appointments/AAMkAGI2... \
+  -H "Content-Type: application/json" \
+  -d '{
+    "apiKey": "YOUR_API_KEY",
+    "apiSecret": "YOUR_API_SECRET",
+    "appointmentStart": "2026-04-15T10:00:00",
+    "appointmentEnd": "2026-04-15T11:00:00",
+    "appointmentTimeZone": "America/Los_Angeles",
+    "appointmentBody": "<p>Rescheduled by 1 hour. Same link.</p>"
+  }'
+```
+
+### Request Body
+
+All fields are optional except credentials. Include only the fields you want to change.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `apiKey` | string | Yes | Your API key |
 | `apiSecret` | string | Yes | Your API secret |
-| `appointmentSubject` | string | No | Updated subject |
-| `appointmentBody` | string | No | Updated body content |
-| `appointmentStart` | string | No | Updated start time |
-| `appointmentEnd` | string | No | Updated end time |
-| `appointmentTimeZone` | string | No | Updated time zone |
-| `appointmentLocation` | string | No | Updated location |
+| `appointmentSubject` | string | No | Updated appointment title |
+| `appointmentBody` | string | No | Updated HTML body content |
+| `appointmentStart` | string | No | Updated start time (ISO 8601) |
+| `appointmentEnd` | string | No | Updated end time (ISO 8601) |
+| `appointmentTimeZone` | string | No | Updated IANA time zone |
+| `appointmentLocation` | string | No | Updated location or meeting URL |
 
-**Example Request**:
-
-```json
-{
-  "apiKey": "your-api-key",
-  "apiSecret": "your-api-secret",
-  "appointmentSubject": "Team Meeting (Rescheduled)",
-  "appointmentStart": "2024-01-16T10:00:00",
-  "appointmentEnd": "2024-01-16T11:00:00",
-  "appointmentTimeZone": "America/Los_Angeles"
-}
-```
-
-**Example Response**:
+### Response
 
 ```json
 {
@@ -146,40 +265,65 @@ Updates an existing appointment. All invitees are notified of changes.
   "message": "Appointment updated successfully",
   "data": {
     "appointmentId": "AAMkAGI2...",
-    "subject": "Team Meeting (Rescheduled)",
-    "dateUpdated": "2024-01-11T09:15:00Z"
+    "subject": "Quarterly Business Review",
+    "dateUpdated": "2026-03-19T15:44:22Z"
   },
   "apiVersion": "v1"
 }
 ```
 
+### JavaScript Example
+
+```javascript
+const response = await fetch(
+  `https://api.scheducal.com/api/v1/appointments/${appointmentId}`,
+  {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      apiKey: process.env.SCHEDUCAL_API_KEY,
+      apiSecret: process.env.SCHEDUCAL_API_SECRET,
+      appointmentStart: "2026-04-15T10:00:00",
+      appointmentEnd: "2026-04-15T11:00:00",
+      appointmentTimeZone: "America/Los_Angeles",
+    }),
+  }
+);
+
+const result = await response.json();
+```
+
 ---
 
-### Cancel Appointment
+## Cancel Appointment
 
-Cancels an appointment. All participants are notified.
+```
+DELETE /api/v1/appointments/{appointmentId}
+```
 
-**Endpoint**: `DELETE /api/v1/appointments/{appointmentId}`
+Cancels the appointment and notifies all invitees. The event is removed from attendees' calendars. This action is irreversible — to reschedule, create a new appointment.
 
-**Request Body**:
+### Request
+
+```bash
+curl -X DELETE https://api.scheducal.com/api/v1/appointments/AAMkAGI2... \
+  -H "Content-Type: application/json" \
+  -d '{
+    "apiKey": "YOUR_API_KEY",
+    "apiSecret": "YOUR_API_SECRET",
+    "comment": "Meeting cancelled — will reschedule next week."
+  }'
+```
+
+### Request Body
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `apiKey` | string | Yes | Your API key |
 | `apiSecret` | string | Yes | Your API secret |
-| `comment` | string | No | Optional cancellation message |
+| `comment` | string | No | Cancellation message shown to attendees in the cancellation notice |
 
-**Example Request**:
-
-```json
-{
-  "apiKey": "your-api-key",
-  "apiSecret": "your-api-secret",
-  "comment": "Meeting cancelled due to scheduling conflict"
-}
-```
-
-**Example Response**:
+### Response
 
 ```json
 {
@@ -187,8 +331,8 @@ Cancels an appointment. All participants are notified.
   "message": "Appointment cancelled successfully",
   "data": {
     "appointmentId": "AAMkAGI2...",
-    "subject": "Team Meeting",
-    "dateCanceled": "2024-01-11T14:00:00Z",
+    "subject": "Quarterly Business Review",
+    "dateCanceled": "2026-03-19T16:02:11Z",
     "isActive": false,
     "inviteeCount": 0,
     "originalInviteeCount": 3
@@ -197,125 +341,240 @@ Cancels an appointment. All participants are notified.
 }
 ```
 
+### What attendees see
+
+Attendees receive a cancellation notification from their calendar system. The appointment is automatically removed from their calendar — they do not need to take any action. If you included a `comment`, it appears in the notification body.
+
+### JavaScript Example
+
+```javascript
+await fetch(
+  `https://api.scheducal.com/api/v1/appointments/${appointmentId}`,
+  {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      apiKey: process.env.SCHEDUCAL_API_KEY,
+      apiSecret: process.env.SCHEDUCAL_API_SECRET,
+      comment: "Meeting cancelled — will reschedule next week.",
+    }),
+  }
+);
+```
+
 ---
 
-### Send Invitation
+## Webhooks
 
-Adds an attendee to an existing appointment.
+ScheduCal sends webhook events when attendees respond to invitations or appointments change. Configure one or more endpoints to receive these events in real time.
 
-**Endpoint**: `POST /api/v1/appointments/{appointmentId}/invitations`
+### Register a webhook
 
-**Request Body**:
+```bash
+curl -X POST https://api.scheducal.com/api/v1/webhooks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "apiKey": "YOUR_API_KEY",
+    "apiSecret": "YOUR_API_SECRET",
+    "webhookUrl": "https://yourapp.com/webhooks/scheducal",
+    "eventTypes": ["attendee.responded", "appointment.updated", "appointment.canceled"]
+  }'
+```
+
+### Request Body
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `apiKey` | string | Yes | Your API key |
 | `apiSecret` | string | Yes | Your API secret |
-| `name` | string | Yes | Invitee's name |
-| `address` | string | Yes | Invitee's email address |
+| `webhookUrl` | string | Yes | HTTPS URL to receive webhook events |
+| `eventTypes` | array | Yes | List of event types to subscribe to |
 
-**Example Request**:
-
-```json
-{
-  "apiKey": "your-api-key",
-  "apiSecret": "your-api-secret",
-  "name": "Jane Smith",
-  "address": "jane.smith@example.com"
-}
-```
-
-**Example Response**:
+### Registration Response
 
 ```json
 {
   "success": true,
-  "message": "Invitation sent successfully",
+  "message": "Webhook registered successfully",
   "data": {
-    "appointmentId": "AAMkAGI2...",
-    "invitee": "Jane Smith",
-    "email": "jane.smith@example.com",
-    "totalInvitees": 2,
-    "appointmentSubject": "Team Meeting",
-    "gmailFirstInvite": false
+    "webhookId": "49856464-9c29-43b0-ad45-a8a9812d82bf",
+    "secret": "whsec_abc123...",
+    "webhookUrl": "https://yourapp.com/webhooks/scheducal",
+    "eventTypes": ["attendee.responded", "appointment.updated", "appointment.canceled"]
   },
   "apiVersion": "v1"
 }
 ```
 
+**Save the `secret` from this response** — you will use it to verify webhook signatures.
+
+### Available events
+
+| Event | Fired when |
+|-------|------------|
+| `attendee.responded` | An attendee accepts, declines, or marks the invitation as tentative |
+| `attendee.proposed_new_time` | An attendee proposes an alternate meeting time |
+| `appointment.updated` | The appointment time, location, or subject was changed |
+| `appointment.canceled` | The appointment was cancelled via API or dashboard |
+
+### Webhook payload
+
+All events share a common envelope:
+
+```json
+{
+  "id": "evt_01HWZXP3K1QR4MNBCDE9FH7J",
+  "event": "attendee.responded",
+  "created_at": "2026-04-15T09:03:44Z",
+  "data": {
+    "appointmentId": "AAMkAGI2...",
+    "appointmentSubject": "Quarterly Business Review",
+    "attendee": {
+      "name": "John Doe",
+      "email": "john@acmecorp.com",
+      "response": "accepted"
+    }
+  }
+}
+```
+
+### Confirming receipt
+
+Your webhook endpoint must return a `2xx` HTTP status within **5 seconds**. Any other response — or a timeout — is treated as a delivery failure and will be retried.
+
+**Retry schedule:**
+
+| Attempt | Delay after previous failure |
+|---------|------------------------------|
+| 1 | Immediate |
+| 2 | 1 minute |
+| 3 | 5 minutes |
+| 4 | 30 minutes |
+| 5 | 2 hours |
+
+After 5 failed attempts, the event is marked as undelivered. You can view and replay undelivered events from the dashboard.
+
+### Verifying webhook signatures
+
+Every webhook request includes a `Scheducal-Signature` header. Verify it to confirm the request came from ScheduCal and was not tampered with. Use the `secret` returned when you registered the webhook.
+
+```javascript
+const crypto = require("crypto");
+
+function verifyWebhook(rawBody, signatureHeader, webhookSecret) {
+  const expected = crypto
+    .createHmac("sha256", webhookSecret)
+    .update(rawBody)
+    .digest("hex");
+
+  const received = signatureHeader.replace("sha256=", "");
+
+  return crypto.timingSafeEqual(
+    Buffer.from(expected, "hex"),
+    Buffer.from(received, "hex")
+  );
+}
+
+// Express example
+app.post(
+  "/webhooks/scheducal",
+  express.raw({ type: "application/json" }),
+  (req, res) => {
+    const valid = verifyWebhook(
+      req.body,
+      req.headers["scheducal-signature"],
+      process.env.SCHEDUCAL_WEBHOOK_SECRET
+    );
+
+    if (!valid) {
+      return res.status(401).send("Invalid signature");
+    }
+
+    const event = JSON.parse(req.body);
+
+    switch (event.event) {
+      case "attendee.responded":
+        // update your CRM or booking system
+        break;
+      case "appointment.canceled":
+        // handle cancellation
+        break;
+    }
+
+    res.sendStatus(200);
+  }
+);
+```
+
+### Managing webhooks
+
+| Action | Method | Endpoint |
+|--------|--------|----------|
+| List webhooks | GET | `/api/v1/webhooks?apiKey=...&apiSecret=...` |
+| Update webhook | PATCH | `/api/v1/webhooks/{webhookId}` |
+| Delete webhook | DELETE | `/api/v1/webhooks/{webhookId}?apiKey=...&apiSecret=...` |
+| Regenerate secret | POST | `/api/v1/webhooks/{webhookId}/regenerate-secret` |
+
 ---
 
-## Response Fields
+## Error Handling
 
-### Gmail First Invite Indicator
+ScheduCal uses standard HTTP status codes. Error responses include a JSON body.
 
-ScheduCal includes required Gmail priming infrastructure for invitations to Gmail addresses. When a Gmail address is invited for the first time from a given account, ScheduCal executes a priming step before delivering the calendar invitation. This step is required to ensure the invitation lands in the attendee's Google Calendar rather than being suppressed by Gmail's spam filters.
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `gmailFirstInvite` | boolean | `true` if Gmail priming was executed for this invitation. This is required infrastructure, not an enhancement. |
-
-**When `gmailFirstInvite: true`:**
-- The invitee is using a Gmail-hosted email address
-- This is their first invitation from your account
-- ScheduCal executed a priming step to ensure correct Gmail calendar delivery
-- **Required**: Display the following message to your user: "Please check your spam folder and confirm the calendar invitation"
-
-**When `gmailFirstInvite: false`:**
-- The invitee is not using Gmail, or they have already received a prior invitation from your account
-- No priming step was needed; standard Exchange delivery was used
-
-This field appears in responses for:
-- Create Appointment (when `name` and `address` are provided)
-- Send Invitation
-
-See [Architecture: Gmail Priming](architecture.md#gmail-priming-required-infrastructure) for a full explanation.
-
----
-
-## ICS Calendar Compliance
-
-ScheduCal enforces correct RFC 5545 (iCalendar) semantics automatically. You do not need to track or pass any of these values — ScheduCal manages them transparently.
-
-### UID Persistence
-
-Every appointment is assigned a persistent UID at creation time. This UID is preserved across all updates and the final cancellation. Per RFC 5545, the UID ties all lifecycle events (create → update → cancel) to the same calendar entry. Without UID persistence, attendee calendar clients create duplicate appointments on every update.
-
-### SEQUENCE Incrementing
-
-The `SEQUENCE` counter is incremented on every update per RFC 5545 §3.8.7.4. This signals to attendee calendar clients that a newer version of the event has arrived, so they replace the existing entry rather than create a duplicate.
-
-### Cancellation METHOD
-
-Cancellations are issued with `METHOD:CANCEL` per iTIP (RFC 5546). This is the correct mechanism for removing an event from attendee calendars. A plain cancellation email without the correct iTIP METHOD header is the most common calendar implementation error — it leaves the event as a phantom entry on the attendee's calendar. ScheduCal handles this correctly via Exchange.
-
----
-
-## Error Responses
-
-All error responses follow this format:
+### Error response format
 
 ```json
 {
   "success": false,
-  "error": "Error message description",
-  "apiVersion": "v1"
+  "message": "end must be after start",
+  "error": {
+    "code": "invalid_time_range",
+    "param": "appointmentEnd"
+  }
 }
 ```
 
-### Common Error Codes
+### HTTP status codes
 
-| HTTP Code | Description |
-|-----------|-------------|
-| 400 | Bad Request - Invalid parameters |
-| 401 | Unauthorized - Invalid API key or secret |
-| 404 | Not Found - Appointment not found |
-| 409 | Conflict - Resource conflict (e.g., already cancelled) |
-| 500 | Internal Server Error |
-| 503 | Service Unavailable - Temporary outage |
+| Status | Meaning |
+|--------|---------|
+| `200` | Success |
+| `201` | Created |
+| `400` | Bad request — check `error.code` and `error.param` |
+| `401` | Unauthorized — missing or invalid credentials |
+| `404` | Not found — appointment ID does not exist or was already cancelled |
+| `409` | Conflict — e.g. duplicate request detected |
+| `422` | Unprocessable — request was valid JSON but failed validation |
+| `429` | Rate limited — back off and retry |
+| `500` | Server error — retry with exponential backoff |
+
+### Common error codes
+
+| Code | Description | Fix |
+|------|-------------|-----|
+| `invalid_time_range` | `appointmentEnd` is before or equal to `appointmentStart` | Ensure end is after start |
+| `missing_required_field` | A required field was not provided | Check required fields for the endpoint |
+| `invalid_email` | An email address is malformed | Check address values |
+| `appointment_not_found` | The appointment ID does not exist | Verify the ID; it may have been cancelled |
+| `appointment_already_cancelled` | Attempting to update or cancel an already-cancelled appointment | No action needed |
+| `invalid_credentials` | API key or secret is missing, malformed, or revoked | Check your credentials in the dashboard |
+| `rate_limit_exceeded` | Too many requests in a short window | Back off and retry after `Retry-After` header |
+
+### Rate limits
+
+| Tier | Limit |
+|------|-------|
+| Default | 60 requests / minute |
+| High-volume (contact us) | Custom |
+
+When rate limited, the response includes a `Retry-After` header with the number of seconds to wait.
 
 ---
 
-## Support
+## SDK Support
+
+Official SDKs are planned for Node.js and Python. Until then, the REST API works directly with any HTTP client — the examples throughout this documentation use `curl` and the browser `fetch` API.
+
+---
 
 For API support, contact support@scheducal.com.
