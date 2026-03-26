@@ -140,14 +140,11 @@ curl -X POST https://api.scheducal.com/api/v1/appointments \
     "location": "https://meet.yourcompany.com/qbr-acme",
     "inviteeCount": 1,
     "hasInitialInvitee": true,
-    "gmailFirstInvite": true,
     "dateCreated": "2026-03-19T14:23:01Z"
   },
   "apiVersion": "v1"
 }
 ```
-
-**`gmailFirstInvite`**: When `true`, the invitee is a Gmail user receiving a calendar invitation from your account for the first time. You should prompt them: *"Please check your spam folder and approve the calendar invitation."* When `false`, no action is needed.
 
 ### JavaScript Example
 
@@ -214,14 +211,11 @@ curl -X POST https://api.scheducal.com/api/v1/appointments/AAMkAGI2.../invitatio
     "invitee": "Mary Jones",
     "email": "mary@acmecorp.com",
     "totalInvitees": 2,
-    "appointmentSubject": "Quarterly Business Review",
-    "gmailFirstInvite": false
+    "appointmentSubject": "Quarterly Business Review"
   },
   "apiVersion": "v1"
 }
 ```
-
-See [Create Appointment](#create-appointment) for `gmailFirstInvite` behavior.
 
 ---
 
@@ -272,7 +266,10 @@ All fields are optional except credentials. Include only the fields you want to 
   "data": {
     "appointmentId": "AAMkAGI2...",
     "subject": "Quarterly Business Review",
-    "dateUpdated": "2026-03-19T15:44:22Z"
+    "startDateTime": "2026-04-15T10:00:00",
+    "endDateTime": "2026-04-15T11:00:00",
+    "timeZone": "America/Los_Angeles",
+    "lastUpdated": "2026-03-19T15:44:22Z"
   },
   "apiVersion": "v1"
 }
@@ -429,17 +426,37 @@ All events share a common envelope:
 
 ```json
 {
-  "id": "evt_01HWZXP3K1QR4MNBCDE9FH7J",
-  "event": "attendee.responded",
-  "created_at": "2026-04-15T09:03:44Z",
+  "id": "3f2a1b4c-5d6e-7f8a-9b0c-1d2e3f4a5b6c",
+  "eventType": "attendee.responded",
+  "timestamp": "2026-04-15T09:03:44Z",
+  "apiVersion": "v1",
   "data": {
     "appointmentId": "AAMkAGI2...",
-    "appointmentSubject": "Quarterly Business Review",
+    "subject": "Quarterly Business Review",
+    "start": "2026-04-15T09:00:00",
+    "end": "2026-04-15T10:00:00",
+    "timeZone": "America/Los_Angeles",
     "attendee": {
       "name": "John Doe",
       "email": "john@acmecorp.com",
-      "response": "accepted"
+      "response": "accepted",
+      "respondedAt": "2026-04-15T09:03:44Z"
     }
+  }
+}
+```
+
+For `attendee.proposed_new_time` events, the `attendee` object also includes:
+
+```json
+{
+  "attendee": {
+    "name": "John Doe",
+    "email": "john@acmecorp.com",
+    "response": "tentativelyAccepted",
+    "respondedAt": "2026-04-15T09:03:44Z",
+    "proposedStart": "2026-04-15T11:00:00",
+    "proposedEnd": "2026-04-15T12:00:00"
   }
 }
 ```
@@ -462,7 +479,7 @@ After 5 failed attempts, the event is marked as undelivered. You can view and re
 
 ### Verifying webhook signatures
 
-Every webhook request includes a `Scheducal-Signature` header. Verify it to confirm the request came from ScheduCal and was not tampered with. Use the `secret` returned when you registered the webhook.
+Every webhook request includes a `X-ScheduCal-Signature` header. Verify it to confirm the request came from ScheduCal and was not tampered with. Use the `secret` returned when you registered the webhook.
 
 ```javascript
 const crypto = require("crypto");
@@ -488,7 +505,7 @@ app.post(
   (req, res) => {
     const valid = verifyWebhook(
       req.body,
-      req.headers["scheducal-signature"],
+      req.headers["x-scheducal-signature"],
       process.env.SCHEDUCAL_WEBHOOK_SECRET
     );
 
@@ -498,7 +515,7 @@ app.post(
 
     const event = JSON.parse(req.body);
 
-    switch (event.event) {
+    switch (event.eventType) {
       case "attendee.responded":
         // update your CRM or booking system
         break;
