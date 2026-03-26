@@ -105,6 +105,5 @@ ScheduCal's Exchange-based delivery works natively across:
 
 ## Further Reading
 
-- [API Reference](api-reference.md) — Endpoint documentation
+- [API Reference](api-reference.md) — Endpoint documentation and How Invitations Work
 - [Webhooks Guide](webhooks.md) — Receiving attendee responses
-- [Strategy: MS Graph & Exchange-Native Delivery](strategy-pivot-msgraph-exchange.md) — Architecture deep dive

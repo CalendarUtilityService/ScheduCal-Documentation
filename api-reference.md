@@ -10,12 +10,13 @@ You call three endpoints and implement one webhook. That is the entire integrati
 
 1. [Quickstart](#quickstart)
 2. [Authentication](#authentication)
-3. [Create Appointment](#create-appointment)
-4. [Send Invitation](#send-invitation)
-5. [Update Appointment](#update-appointment)
-6. [Cancel Appointment](#cancel-appointment)
-7. [Webhooks](#webhooks)
-8. [Error Handling](#error-handling)
+3. [How Invitations Work](#how-invitations-work)
+4. [Create Appointment](#create-appointment)
+5. [Send Invitation](#send-invitation)
+6. [Update Appointment](#update-appointment)
+7. [Cancel Appointment](#cancel-appointment)
+8. [Webhooks](#webhooks)
+9. [Error Handling](#error-handling)
 
 ---
 
@@ -83,6 +84,21 @@ You can manage your credentials from the dashboard under **Settings → API Keys
 
 ---
 
+## How Invitations Work
+
+ScheduCal is built on **Microsoft Exchange**, accessed via the **Microsoft Graph API**. When you create an appointment:
+
+1. ScheduCal creates a calendar event in Exchange via the Graph API
+2. Exchange delivers a standards-compliant calendar invitation to each attendee's inbox
+3. Your attendee accepts, declines, or proposes a new time from any calendar app
+4. ScheduCal surfaces the response through your webhook
+
+Exchange handles the complete meeting lifecycle — invite, update, cancel — using correct RFC 5545 ICS semantics (UID persistence, SEQUENCE incrementing, `METHOD:CANCEL`). Your attendees receive a native calendar event, not an email with an attachment.
+
+**Cross-calendar compatibility is built in.** Exchange interoperates natively with Google Calendar, Apple Calendar, and all CalDAV clients. For first-time invitations to Gmail addresses, ScheduCal automatically performs a priming step to ensure reliable delivery — reflected in the `gmailFirstInvite` field returned in the response.
+
+---
+
 ## Create Appointment
 
 ```
@@ -140,11 +156,14 @@ curl -X POST https://api.scheducal.com/api/v1/appointments \
     "location": "https://meet.yourcompany.com/qbr-acme",
     "inviteeCount": 1,
     "hasInitialInvitee": true,
+    "gmailFirstInvite": false,
     "dateCreated": "2026-03-19T14:23:01Z"
   },
   "apiVersion": "v1"
 }
 ```
+
+`gmailFirstInvite` is `true` when this is the first invitation sent to a Gmail address from your account. ScheduCal performs a priming step automatically to ensure reliable delivery. When `true`, display guidance to the attendee: _"Please check your spam folder and confirm the calendar invitation."_
 
 ### JavaScript Example
 
@@ -211,7 +230,8 @@ curl -X POST https://api.scheducal.com/api/v1/appointments/AAMkAGI2.../invitatio
     "invitee": "Mary Jones",
     "email": "mary@acmecorp.com",
     "totalInvitees": 2,
-    "appointmentSubject": "Quarterly Business Review"
+    "appointmentSubject": "Quarterly Business Review",
+    "gmailFirstInvite": false
   },
   "apiVersion": "v1"
 }

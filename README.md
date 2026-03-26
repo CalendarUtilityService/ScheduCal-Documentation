@@ -7,9 +7,8 @@ ScheduCal is a **fully managed calendar invitation service** built on Microsoft 
 ## Documentation
 
 - [Architecture Overview](architecture.md) - How ScheduCal works: Exchange/Graph delivery layer, ICS compliance semantics, Gmail priming
-- [API Reference](api-reference.md) - Core API endpoints for appointments
+- [API Reference](api-reference.md) - Core API endpoints, including How Invitations Work
 - [Webhooks Guide](webhooks.md) - Real-time event notifications
-- [MS Graph & Exchange Strategy](strategy-pivot-msgraph-exchange.md) - Architecture deep dive
 - [Postman Collection](ScheduCal-API.postman_collection.json) - Import into Postman for testing
 
 ## Quick Start
