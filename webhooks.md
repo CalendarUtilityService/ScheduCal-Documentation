@@ -86,7 +86,7 @@ X-ScheduCal-Delivery: 550e8400-e29b-41d4-a716-446655440000
 | Event Type | Description |
 |------------|-------------|
 | `attendee.responded` | An attendee accepted, declined, or tentatively accepted the invitation |
-| `attendee.proposed_new_time` | **Coming soon: not sent yet** (ScheduCal issue 63). An attendee proposed an alternative meeting time |
+| `attendee.proposed_new_time` | **Coming soon: not sent yet.** An attendee proposed an alternative meeting time |
 | `appointment.updated` | The appointment's time, location, or subject was changed |
 | `appointment.canceled` | The appointment was canceled |
 

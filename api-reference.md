@@ -436,7 +436,7 @@ curl -X POST https://api.scheducal.com/api/v1/webhooks \
 | Event | Fired when |
 |-------|------------|
 | `attendee.responded` | An attendee accepts, declines, or marks the invitation as tentative |
-| `attendee.proposed_new_time` | **Coming soon: not sent yet** (ScheduCal issue 63). An attendee proposes an alternate meeting time |
+| `attendee.proposed_new_time` | **Coming soon: not sent yet.** An attendee proposes an alternate meeting time |
 | `appointment.updated` | The appointment time, location, or subject was changed |
 | `appointment.canceled` | The appointment was cancelled via API or dashboard |
 
