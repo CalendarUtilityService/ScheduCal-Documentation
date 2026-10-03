@@ -91,7 +91,7 @@ ScheduCal is built on **Microsoft Exchange**, accessed via the **Microsoft Graph
 1. ScheduCal creates a calendar event in Exchange via the Graph API
 2. Exchange delivers a standards-compliant calendar invitation to each attendee's inbox
 3. Your attendee accepts, declines, or proposes a new time from any calendar app
-4. ScheduCal surfaces the response through your webhook
+4. ScheduCal surfaces accepts, declines and tentative responses through your webhook (proposed new times are coming soon)
 
 Exchange handles the complete meeting lifecycle — invite, update, cancel — using correct RFC 5545 ICS semantics (UID persistence, SEQUENCE incrementing, `METHOD:CANCEL`). Your attendees receive a native calendar event, not an email with an attachment.
 
@@ -436,7 +436,7 @@ curl -X POST https://api.scheducal.com/api/v1/webhooks \
 | Event | Fired when |
 |-------|------------|
 | `attendee.responded` | An attendee accepts, declines, or marks the invitation as tentative |
-| `attendee.proposed_new_time` | An attendee proposes an alternate meeting time |
+| `attendee.proposed_new_time` | **Coming soon: not sent yet.** An attendee proposes an alternate meeting time |
 | `appointment.updated` | The appointment time, location, or subject was changed |
 | `appointment.canceled` | The appointment was cancelled via API or dashboard |
 
@@ -466,7 +466,7 @@ All events share a common envelope:
 }
 ```
 
-For `attendee.proposed_new_time` events, the `attendee` object also includes:
+For `attendee.proposed_new_time` events (coming soon: not sent yet), the `attendee` object will also include:
 
 ```json
 {

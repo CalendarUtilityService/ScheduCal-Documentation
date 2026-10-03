@@ -86,7 +86,7 @@ X-ScheduCal-Delivery: 550e8400-e29b-41d4-a716-446655440000
 | Event Type | Description |
 |------------|-------------|
 | `attendee.responded` | An attendee accepted, declined, or tentatively accepted the invitation |
-| `attendee.proposed_new_time` | An attendee proposed an alternative meeting time |
+| `attendee.proposed_new_time` | **Coming soon: not sent yet.** An attendee proposed an alternative meeting time |
 | `appointment.updated` | The appointment's time, location, or subject was changed |
 | `appointment.canceled` | The appointment was canceled |
 
@@ -251,8 +251,8 @@ All webhook deliveries follow this structure:
       "name": "Attendee name (if available)",
       "response": "accepted | declined | tentative",
       "respondedAt": "When they responded (ISO 8601)",
-      "proposedStart": "Proposed new start (if applicable)",
-      "proposedEnd": "Proposed new end (if applicable)"
+      "proposedStart": "Proposed new start (coming soon: not sent yet)",
+      "proposedEnd": "Proposed new end (coming soon: not sent yet)"
     }
   }
 }
