@@ -2,7 +2,9 @@
 
 ## Overview
 
-ScheduCal Webhooks allow your application to receive real-time notifications when calendar events change. When an attendee responds to a meeting invitation (accepts, declines, or proposes a new time), ScheduCal will send an HTTP POST request to your registered webhook URL.
+ScheduCal Webhooks allow your application to receive real-time notifications when calendar events change. When an attendee responds to a meeting invitation (accepts, declines, or tentatively accepts), ScheduCal will send an HTTP POST request to your registered webhook URL.
+
+Every request in this guide authenticates with HTTP Basic authentication: your API key as the username and your API secret as the password (`Authorization: Basic base64(apiKey:apiSecret)`). The curl examples use `-u "$API_KEY:$API_SECRET"`; see [Authentication](api-reference.md#authentication) for other languages and for the `401`/`403` responses. Sending `apiKey` and `apiSecret` in the request body is deprecated: it still works for now, but will be removed.
 
 ---
 
@@ -12,10 +14,9 @@ ScheduCal Webhooks allow your application to receive real-time notifications whe
 
 ```bash
 curl -X POST "https://api.scheducal.com/api/v1/webhooks" \
+  -u "$API_KEY:$API_SECRET" \
   -H "Content-Type: application/json" \
   -d '{
-    "apiKey": "your-api-key",
-    "apiSecret": "your-api-secret",
     "webhookUrl": "https://your-app.com/webhooks/scheducal",
     "eventTypes": ["attendee.responded", "appointment.updated"]
   }'
@@ -53,10 +54,10 @@ When an attendee responds to a calendar invitation, you'll receive:
 POST /webhooks/scheducal HTTP/1.1
 Host: your-app.com
 Content-Type: application/json
-X-ScheduCal-Signature: sha256=aujHqc8fuw/dBx6quWO8d92hlHGsrsuOAXXmx2YFDc0=
-X-ScheduCal-Timestamp: 1735789200
+X-ScheduCal-Signature: sha256=Xq0XcqOVM6M2ZpBG8Kx1d8m2b9r1yQJ0f4kq4w3wDzA=
+X-ScheduCal-Timestamp: 1735812000
 X-ScheduCal-Event: attendee.responded
-X-ScheduCal-Delivery: 550e8400-e29b-41d4-a716-446655440000
+X-ScheduCal-Delivery: 7c9e6679-7425-40de-944b-e07fc1f90ae7
 
 {
   "id": "550e8400-e29b-41d4-a716-446655440000",
@@ -103,12 +104,12 @@ Register a new webhook endpoint for your account.
 **Request Body:**
 ```json
 {
-  "apiKey": "string (required)",
-  "apiSecret": "string (required)",
-  "webhookUrl": "string (required) - HTTPS URL",
+  "webhookUrl": "string (required) - URL to deliver events to; use HTTPS",
   "eventTypes": ["string"] (required) - Array of event types
 }
 ```
+
+Registering a URL that is already registered for your account returns `400`.
 
 **Response:** `201 Created`
 ```json
@@ -133,13 +134,12 @@ Register a new webhook endpoint for your account.
 
 List all webhooks registered for your account.
 
-**Query Parameters:**
-- `apiKey` (required)
-- `apiSecret` (required)
+This request has no body, so it authenticates with the `Authorization` header only:
 
-Or use headers:
-- `X-Api-Key`
-- `X-Api-Secret`
+```bash
+curl "https://api.scheducal.com/api/v1/webhooks" \
+  -u "$API_KEY:$API_SECRET"
+```
 
 **Response:** `200 OK`
 ```json
@@ -154,7 +154,8 @@ Or use headers:
       "consecutiveFailures": 0,
       "lastDeliveryAt": "ISO 8601 timestamp or null",
       "lastDeliveryStatus": "success | failed | null",
-      "dateCreated": "ISO 8601 timestamp"
+      "dateCreated": "ISO 8601 timestamp",
+      "dateUpdated": "ISO 8601 timestamp or null"
     }
   ]
 }
@@ -171,8 +172,6 @@ Update an existing webhook's configuration.
 **Request Body:**
 ```json
 {
-  "apiKey": "string (required)",
-  "apiSecret": "string (required)",
   "webhookUrl": "string (optional)",
   "eventTypes": ["string"] (optional),
   "isActive": true | false (optional)
@@ -180,6 +179,18 @@ Update an existing webhook's configuration.
 ```
 
 **Response:** `200 OK`
+```json
+{
+  "success": true,
+  "data": {
+    "webhookId": "uuid",
+    "webhookUrl": "string",
+    "eventTypes": ["string"],
+    "isActive": true,
+    "dateUpdated": "ISO 8601 timestamp"
+  }
+}
+```
 
 ---
 
@@ -187,11 +198,12 @@ Update an existing webhook's configuration.
 
 **DELETE** `/api/v1/webhooks/{webhookId}`
 
-Delete a webhook.
+Delete a webhook. This request has no body, so it authenticates with the `Authorization` header only:
 
-**Query Parameters:**
-- `apiKey` (required)
-- `apiSecret` (required)
+```bash
+curl -X DELETE "https://api.scheducal.com/api/v1/webhooks/{webhookId}" \
+  -u "$API_KEY:$API_SECRET"
+```
 
 **Response:** `200 OK`
 ```json
@@ -207,14 +219,11 @@ Delete a webhook.
 
 **POST** `/api/v1/webhooks/{webhookId}/regenerate-secret`
 
-Generate a new signing secret. The old secret will immediately stop working.
+Generate a new signing secret. The old secret will immediately stop working. No request body is needed:
 
-**Request Body:**
-```json
-{
-  "apiKey": "string (required)",
-  "apiSecret": "string (required)"
-}
+```bash
+curl -X POST "https://api.scheducal.com/api/v1/webhooks/{webhookId}/regenerate-secret" \
+  -u "$API_KEY:$API_SECRET"
 ```
 
 **Response:** `200 OK`
@@ -236,7 +245,7 @@ All webhook deliveries follow this structure:
 
 ```json
 {
-  "id": "Unique delivery ID (UUID)",
+  "id": "Unique event ID (UUID); the same on every retry",
   "eventType": "Event type string",
   "timestamp": "ISO 8601 timestamp when event occurred",
   "apiVersion": "v1",
@@ -249,7 +258,7 @@ All webhook deliveries follow this structure:
     "attendee": {
       "email": "Attendee email",
       "name": "Attendee name (if available)",
-      "response": "accepted | declined | tentative",
+      "response": "accepted | declined | tentativelyaccepted",
       "respondedAt": "When they responded (ISO 8601)",
       "proposedStart": "Proposed new start (coming soon: not sent yet)",
       "proposedEnd": "Proposed new end (coming soon: not sent yet)"
@@ -257,6 +266,8 @@ All webhook deliveries follow this structure:
   }
 }
 ```
+
+`attendee` is set only on attendee events; on other events it is `null`. Until `attendee.proposed_new_time` is sent, `proposedStart` and `proposedEnd` are `null`.
 
 ---
 
@@ -267,7 +278,7 @@ All webhook deliveries follow this structure:
 | `X-ScheduCal-Signature` | HMAC-SHA256 signature for verification |
 | `X-ScheduCal-Timestamp` | Unix timestamp when the webhook was sent |
 | `X-ScheduCal-Event` | The event type |
-| `X-ScheduCal-Delivery` | Unique ID for this delivery attempt |
+| `X-ScheduCal-Delivery` | Unique ID for this delivery of the event to this endpoint; the same on every retry |
 | `Content-Type` | Always `application/json` |
 
 ---
@@ -297,18 +308,20 @@ function verifySignature(secret, timestamp, body, signature) {
     .update(signedPayload)
     .digest('base64');
 
-  const receivedSignature = signature.replace('sha256=', '');
+  const receivedSignature = (signature || '').replace('sha256=', '');
 
-  return crypto.timingSafeEqual(
-    Buffer.from(expectedSignature),
-    Buffer.from(receivedSignature)
-  );
+  // timingSafeEqual throws when the lengths differ, so check them first.
+  return expectedSignature.length === receivedSignature.length &&
+    crypto.timingSafeEqual(
+      Buffer.from(expectedSignature),
+      Buffer.from(receivedSignature)
+    );
 }
 
 // Express.js middleware
 app.post('/webhooks/scheducal', express.raw({type: 'application/json'}), (req, res) => {
-  const signature = req.headers['x-schedcal-signature'];
-  const timestamp = req.headers['x-schedcal-timestamp'];
+  const signature = req.headers['x-scheducal-signature'];
+  const timestamp = req.headers['x-scheducal-timestamp'];
   const body = req.body.toString();
 
   if (!verifySignature(WEBHOOK_SECRET, timestamp, body, signature)) {
@@ -381,7 +394,9 @@ public bool VerifySignature(string secret, string timestamp, string body, string
 
     var receivedSignature = signature.Replace("sha256=", "");
 
-    return expectedSignature == receivedSignature;
+    return CryptographicOperations.FixedTimeEquals(
+        Encoding.UTF8.GetBytes(expectedSignature),
+        Encoding.UTF8.GetBytes(receivedSignature));
 }
 ```
 
@@ -389,16 +404,16 @@ public bool VerifySignature(string secret, string timestamp, string body, string
 
 ## Retry Behavior
 
-If your endpoint returns a non-2xx status code or times out, ScheduCal will retry with exponential backoff:
+If your endpoint returns a non-2xx status code or does not respond within 30 seconds, ScheduCal will retry with exponential backoff. Each delivery is attempted up to 6 times:
 
-| Attempt | Delay After Failure |
-|---------|---------------------|
-| 1 | 30 seconds |
-| 2 | 1 minute |
-| 3 | 2 minutes |
-| 4 | 5 minutes |
-| 5 | 15 minutes |
-| 6 | 30 minutes |
+| Attempt | Delay After Previous Failure |
+|---------|------------------------------|
+| 1 | Immediate |
+| 2 | 30 seconds |
+| 3 | 1 minute |
+| 4 | 2 minutes |
+| 5 | 5 minutes |
+| 6 | 15 minutes |
 
 After 6 failed attempts, the delivery is marked as permanently failed.
 
@@ -408,10 +423,9 @@ If your webhook endpoint fails **10 consecutive times** (across any deliveries),
 
 ```bash
 curl -X PATCH "https://api.scheducal.com/api/v1/webhooks/{webhookId}" \
+  -u "$API_KEY:$API_SECRET" \
   -H "Content-Type: application/json" \
   -d '{
-    "apiKey": "your-api-key",
-    "apiSecret": "your-api-secret",
     "isActive": true
   }'
 ```
@@ -433,7 +447,7 @@ Always verify the signature in production to ensure webhooks are from ScheduCal.
 Reject webhooks with timestamps too far in the past (e.g., > 5 minutes) to prevent replay attacks.
 
 ### 5. Use HTTPS
-Webhook URLs must use HTTPS. HTTP URLs will be rejected.
+Register an HTTPS URL. Plain HTTP URLs are accepted, but payloads and signatures would then travel unencrypted.
 
 ### 6. Handle All Event Types
 Even if you only subscribe to certain events, gracefully handle unexpected event types in case new ones are added.
@@ -444,10 +458,12 @@ Even if you only subscribe to certain events, gracefully handle unexpected event
 
 | Status Code | Description |
 |-------------|-------------|
-| 400 | Bad request (invalid payload, missing fields) |
-| 401 | Invalid API credentials |
-| 404 | Webhook not found |
+| 400 | Bad request (invalid payload, missing fields, invalid event type, URL already registered) |
+| 401 | Missing, malformed, or invalid API credentials. The response includes `WWW-Authenticate: Basic realm="ScheduCal"` |
+| 403 | Valid credentials, but the account is suspended |
+| 404 | Webhook not found (including a webhook that belongs to another account) |
 | 500 | Internal server error |
+| 503 | Service temporarily unavailable |
 
 Error response format:
 ```json
@@ -456,3 +472,5 @@ Error response format:
   "error": "Error message describing the issue"
 }
 ```
+
+See [Error Handling](api-reference.md#error-handling) for the authentication error messages.

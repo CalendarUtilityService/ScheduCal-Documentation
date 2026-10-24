@@ -26,16 +26,22 @@ Get from zero to your first appointment in under 10 minutes.
 
 ### 1. Get your API credentials
 
-Log in to your ScheduCal dashboard and navigate to **Settings → API Keys**. Copy your `apiKey` and `apiSecret`. Both are always accessible from the dashboard.
+Log in to your ScheduCal dashboard and navigate to **Settings → API Keys**. Copy your API key and API secret. Both are always accessible from the dashboard.
+
+The examples in this guide read them from environment variables:
+
+```bash
+export API_KEY="your-api-key"
+export API_SECRET="your-api-secret"
+```
 
 ### 2. Create your first appointment
 
 ```bash
 curl -X POST https://api.scheducal.com/api/v1/appointments \
+  -u "$API_KEY:$API_SECRET" \
   -H "Content-Type: application/json" \
   -d '{
-    "apiKey": "YOUR_API_KEY",
-    "apiSecret": "YOUR_API_SECRET",
     "appointmentSubject": "Intro Call — Acme Corp",
     "appointmentStart": "2026-04-01T14:00:00",
     "appointmentEnd": "2026-04-01T14:30:00",
@@ -53,10 +59,9 @@ Register a webhook endpoint to receive real-time RSVP updates:
 
 ```bash
 curl -X POST https://api.scheducal.com/api/v1/webhooks \
+  -u "$API_KEY:$API_SECRET" \
   -H "Content-Type: application/json" \
   -d '{
-    "apiKey": "YOUR_API_KEY",
-    "apiSecret": "YOUR_API_SECRET",
     "webhookUrl": "https://yourapp.com/webhooks/scheducal",
     "eventTypes": ["attendee.responded", "appointment.updated", "appointment.canceled"]
   }'
@@ -68,19 +73,107 @@ Done. Your integration is live.
 
 ## Authentication
 
-All API requests include your `apiKey` and `apiSecret` in the request body.
+Authenticate every request with HTTP Basic authentication: send your API key as the username and your API secret as the password in the `Authorization` header.
 
-```json
-{
-  "apiKey": "YOUR_API_KEY",
-  "apiSecret": "YOUR_API_SECRET",
-  ...
-}
 ```
+Authorization: Basic base64(apiKey:apiSecret)
+```
+
+Join the key and the secret with a single colon, Base64-encode the result, and prefix it with `Basic `. Most HTTP clients do this for you, as the examples below show. The request body carries only the fields of the operation itself.
 
 You can manage your credentials from the dashboard under **Settings → API Keys**. Both values are always visible from the dashboard.
 
 **Keep your credentials secret.** Do not commit them to version control or expose them in client-side code.
+
+### curl
+
+`-u` sends the `Authorization: Basic` header:
+
+```bash
+curl -X POST https://api.scheducal.com/api/v1/appointments \
+  -u "$API_KEY:$API_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "appointmentStart": "2026-04-15T09:00:00",
+    "appointmentEnd": "2026-04-15T10:00:00",
+    "appointmentTimeZone": "America/Los_Angeles"
+  }'
+```
+
+### Node.js (fetch)
+
+```javascript
+const auth =
+  "Basic " +
+  Buffer.from(`${process.env.API_KEY}:${process.env.API_SECRET}`).toString("base64");
+
+const response = await fetch("https://api.scheducal.com/api/v1/appointments", {
+  method: "POST",
+  headers: { "Content-Type": "application/json", Authorization: auth },
+  body: JSON.stringify({
+    appointmentStart: "2026-04-15T09:00:00",
+    appointmentEnd: "2026-04-15T10:00:00",
+    appointmentTimeZone: "America/Los_Angeles",
+  }),
+});
+```
+
+### Python (requests)
+
+Passing a `(key, secret)` tuple as `auth` sends HTTP Basic authentication:
+
+```python
+import os
+import requests
+
+response = requests.post(
+    "https://api.scheducal.com/api/v1/appointments",
+    auth=(os.environ["API_KEY"], os.environ["API_SECRET"]),
+    json={
+        "appointmentStart": "2026-04-15T09:00:00",
+        "appointmentEnd": "2026-04-15T10:00:00",
+        "appointmentTimeZone": "America/Los_Angeles",
+    },
+)
+```
+
+### C# (HttpClient)
+
+```csharp
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
+using System.Text;
+
+var apiKey = Environment.GetEnvironmentVariable("API_KEY");
+var apiSecret = Environment.GetEnvironmentVariable("API_SECRET");
+
+var client = new HttpClient { BaseAddress = new Uri("https://api.scheducal.com") };
+client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+    "Basic",
+    Convert.ToBase64String(Encoding.UTF8.GetBytes($"{apiKey}:{apiSecret}")));
+
+var response = await client.PostAsJsonAsync("/api/v1/appointments", new
+{
+    appointmentStart = "2026-04-15T09:00:00",
+    appointmentEnd = "2026-04-15T10:00:00",
+    appointmentTimeZone = "America/Los_Angeles"
+});
+```
+
+### Authentication errors
+
+| Status | When |
+|--------|------|
+| `401 Unauthorized` | No credentials were sent, the `Authorization` header is malformed (not `Basic`, not valid Base64, or missing the `key:secret` colon), or the key and secret do not match an account |
+| `403 Forbidden` | The key and secret are valid, but the account is suspended and API access is disabled |
+
+Every `401` response carries a `WWW-Authenticate: Basic realm="ScheduCal"` header. See [Error Handling](#error-handling) for the response bodies.
+
+When an `Authorization` header is present, it is the only credential ScheduCal reads: a wrong or malformed header returns `401` even if the request body also contains credentials.
+
+### Deprecated: credentials in the request body
+
+Earlier versions of this API took `apiKey` and `apiSecret` as fields in the JSON request body. Requests without an `Authorization` header that still send them are accepted for now, but this is deprecated and will be removed. Move to the `Authorization` header. The webhook list and delete endpoints (`GET` and `DELETE`) have no request body and accept only the header.
 
 ---
 
@@ -111,10 +204,9 @@ Creates a new appointment. Optionally include an initial invitee — additional 
 
 ```bash
 curl -X POST https://api.scheducal.com/api/v1/appointments \
+  -u "$API_KEY:$API_SECRET" \
   -H "Content-Type: application/json" \
   -d '{
-    "apiKey": "YOUR_API_KEY",
-    "apiSecret": "YOUR_API_SECRET",
     "appointmentSubject": "Quarterly Business Review",
     "appointmentBody": "<p>Q1 2026 review with the Acme team.</p>",
     "appointmentStart": "2026-04-15T09:00:00",
@@ -130,8 +222,6 @@ curl -X POST https://api.scheducal.com/api/v1/appointments \
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `apiKey` | string | Yes | Your API key |
-| `apiSecret` | string | Yes | Your API secret |
 | `appointmentStart` | string | Yes | Start time, ISO 8601 format (e.g. `2026-04-15T09:00:00`) |
 | `appointmentEnd` | string | Yes | End time, ISO 8601 format. Must be after start. |
 | `appointmentTimeZone` | string | Yes | IANA time zone name (e.g. `America/New_York`) |
@@ -168,12 +258,11 @@ curl -X POST https://api.scheducal.com/api/v1/appointments \
 ### JavaScript Example
 
 ```javascript
+// auth is "Basic " + base64(apiKey:apiSecret); see Authentication.
 const response = await fetch("https://api.scheducal.com/api/v1/appointments", {
   method: "POST",
-  headers: { "Content-Type": "application/json" },
+  headers: { "Content-Type": "application/json", Authorization: auth },
   body: JSON.stringify({
-    apiKey: process.env.SCHEDUCAL_API_KEY,
-    apiSecret: process.env.SCHEDUCAL_API_SECRET,
     appointmentSubject: "Quarterly Business Review",
     appointmentStart: "2026-04-15T09:00:00",
     appointmentEnd: "2026-04-15T10:00:00",
@@ -201,10 +290,9 @@ Sends a calendar invitation to an additional attendee for an existing appointmen
 
 ```bash
 curl -X POST https://api.scheducal.com/api/v1/appointments/AAMkAGI2.../invitations \
+  -u "$API_KEY:$API_SECRET" \
   -H "Content-Type: application/json" \
   -d '{
-    "apiKey": "YOUR_API_KEY",
-    "apiSecret": "YOUR_API_SECRET",
     "name": "Mary Jones",
     "address": "mary@acmecorp.com"
   }'
@@ -214,8 +302,6 @@ curl -X POST https://api.scheducal.com/api/v1/appointments/AAMkAGI2.../invitatio
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `apiKey` | string | Yes | Your API key |
-| `apiSecret` | string | Yes | Your API secret |
 | `name` | string | Yes | Invitee display name |
 | `address` | string | Yes | Invitee email address |
 
@@ -251,10 +337,9 @@ Updates an existing appointment and notifies all invitees. ScheduCal handles all
 
 ```bash
 curl -X PUT https://api.scheducal.com/api/v1/appointments/AAMkAGI2... \
+  -u "$API_KEY:$API_SECRET" \
   -H "Content-Type: application/json" \
   -d '{
-    "apiKey": "YOUR_API_KEY",
-    "apiSecret": "YOUR_API_SECRET",
     "appointmentStart": "2026-04-15T10:00:00",
     "appointmentEnd": "2026-04-15T11:00:00",
     "appointmentTimeZone": "America/Los_Angeles",
@@ -264,12 +349,10 @@ curl -X PUT https://api.scheducal.com/api/v1/appointments/AAMkAGI2... \
 
 ### Request Body
 
-All fields are optional except credentials. Include only the fields you want to change.
+All fields are optional. Include only the fields you want to change.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `apiKey` | string | Yes | Your API key |
-| `apiSecret` | string | Yes | Your API secret |
 | `appointmentSubject` | string | No | Updated appointment title |
 | `appointmentBody` | string | No | Updated HTML body content |
 | `appointmentStart` | string | No | Updated start time (ISO 8601) |
@@ -298,14 +381,13 @@ All fields are optional except credentials. Include only the fields you want to 
 ### JavaScript Example
 
 ```javascript
+// auth is "Basic " + base64(apiKey:apiSecret); see Authentication.
 const response = await fetch(
   `https://api.scheducal.com/api/v1/appointments/${appointmentId}`,
   {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", Authorization: auth },
     body: JSON.stringify({
-      apiKey: process.env.SCHEDUCAL_API_KEY,
-      apiSecret: process.env.SCHEDUCAL_API_SECRET,
       appointmentStart: "2026-04-15T10:00:00",
       appointmentEnd: "2026-04-15T11:00:00",
       appointmentTimeZone: "America/Los_Angeles",
@@ -330,10 +412,9 @@ Cancels the appointment and notifies all invitees. The event is removed from att
 
 ```bash
 curl -X DELETE https://api.scheducal.com/api/v1/appointments/AAMkAGI2... \
+  -u "$API_KEY:$API_SECRET" \
   -H "Content-Type: application/json" \
   -d '{
-    "apiKey": "YOUR_API_KEY",
-    "apiSecret": "YOUR_API_SECRET",
     "comment": "Meeting cancelled — will reschedule next week."
   }'
 ```
@@ -342,8 +423,6 @@ curl -X DELETE https://api.scheducal.com/api/v1/appointments/AAMkAGI2... \
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `apiKey` | string | Yes | Your API key |
-| `apiSecret` | string | Yes | Your API secret |
 | `comment` | string | No | Cancellation message shown to attendees in the cancellation notice |
 
 ### Response
@@ -371,14 +450,13 @@ Attendees receive a cancellation notification from their calendar system. The ap
 ### JavaScript Example
 
 ```javascript
+// auth is "Basic " + base64(apiKey:apiSecret); see Authentication.
 await fetch(
   `https://api.scheducal.com/api/v1/appointments/${appointmentId}`,
   {
     method: "DELETE",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", Authorization: auth },
     body: JSON.stringify({
-      apiKey: process.env.SCHEDUCAL_API_KEY,
-      apiSecret: process.env.SCHEDUCAL_API_SECRET,
       comment: "Meeting cancelled — will reschedule next week.",
     }),
   }
@@ -395,10 +473,9 @@ ScheduCal sends webhook events when attendees respond to invitations or appointm
 
 ```bash
 curl -X POST https://api.scheducal.com/api/v1/webhooks \
+  -u "$API_KEY:$API_SECRET" \
   -H "Content-Type: application/json" \
   -d '{
-    "apiKey": "YOUR_API_KEY",
-    "apiSecret": "YOUR_API_SECRET",
     "webhookUrl": "https://yourapp.com/webhooks/scheducal",
     "eventTypes": ["attendee.responded", "appointment.updated", "appointment.canceled"]
   }'
@@ -408,24 +485,24 @@ curl -X POST https://api.scheducal.com/api/v1/webhooks \
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `apiKey` | string | Yes | Your API key |
-| `apiSecret` | string | Yes | Your API secret |
-| `webhookUrl` | string | Yes | HTTPS URL to receive webhook events |
+| `webhookUrl` | string | Yes | URL to receive webhook events. Use HTTPS. |
 | `eventTypes` | array | Yes | List of event types to subscribe to |
 
 ### Registration Response
 
+`201 Created`
+
 ```json
 {
   "success": true,
-  "message": "Webhook registered successfully",
   "data": {
     "webhookId": "49856464-9c29-43b0-ad45-a8a9812d82bf",
-    "secret": "whsec_abc123...",
     "webhookUrl": "https://yourapp.com/webhooks/scheducal",
-    "eventTypes": ["attendee.responded", "appointment.updated", "appointment.canceled"]
-  },
-  "apiVersion": "v1"
+    "secret": "aujHqc8fuw/dBx6quWO8d92hlHGsrsuOAXXmx2YFDc0=",
+    "eventTypes": ["attendee.responded", "appointment.updated", "appointment.canceled"],
+    "isActive": true,
+    "dateCreated": "2026-03-19T14:23:01Z"
+  }
 }
 ```
 
@@ -483,38 +560,41 @@ For `attendee.proposed_new_time` events (coming soon: not sent yet), the `attend
 
 ### Confirming receipt
 
-Your webhook endpoint must return a `2xx` HTTP status within **5 seconds**. Any other response — or a timeout — is treated as a delivery failure and will be retried.
+Your webhook endpoint must return a `2xx` HTTP status within **30 seconds**. Any other response — or a timeout — is treated as a delivery failure and will be retried.
 
 **Retry schedule:**
 
 | Attempt | Delay after previous failure |
 |---------|------------------------------|
 | 1 | Immediate |
-| 2 | 1 minute |
-| 3 | 5 minutes |
-| 4 | 30 minutes |
-| 5 | 2 hours |
+| 2 | 30 seconds |
+| 3 | 1 minute |
+| 4 | 2 minutes |
+| 5 | 5 minutes |
+| 6 | 15 minutes |
 
-After 5 failed attempts, the event is marked as undelivered. You can view and replay undelivered events from the dashboard.
+After 6 failed attempts, the delivery is marked as permanently failed. After 10 consecutive failures across deliveries, the webhook is disabled automatically; re-enable it with `PATCH /api/v1/webhooks/{webhookId}` and `"isActive": true`. See the [Webhooks Guide](webhooks.md#retry-behavior).
 
 ### Verifying webhook signatures
 
-Every webhook request includes a `X-ScheduCal-Signature` header. Verify it to confirm the request came from ScheduCal and was not tampered with. Use the `secret` returned when you registered the webhook.
+Every webhook request includes `X-ScheduCal-Signature` and `X-ScheduCal-Timestamp` headers. Verify them to confirm the request came from ScheduCal and was not tampered with. Use the `secret` returned when you registered the webhook.
+
+The signature is `sha256=` followed by the Base64-encoded HMAC-SHA256 of `{timestamp}.{rawBody}`, keyed with your webhook secret, where `{timestamp}` is the value of `X-ScheduCal-Timestamp`. The [Webhooks Guide](webhooks.md#verifying-signatures) has Python and C# versions.
 
 ```javascript
 const crypto = require("crypto");
 
-function verifyWebhook(rawBody, signatureHeader, webhookSecret) {
+function verifyWebhook(rawBody, timestamp, signatureHeader, webhookSecret) {
   const expected = crypto
     .createHmac("sha256", webhookSecret)
-    .update(rawBody)
-    .digest("hex");
+    .update(`${timestamp}.${rawBody}`)
+    .digest("base64");
 
-  const received = signatureHeader.replace("sha256=", "");
+  const received = (signatureHeader || "").replace("sha256=", "");
 
-  return crypto.timingSafeEqual(
-    Buffer.from(expected, "hex"),
-    Buffer.from(received, "hex")
+  return (
+    expected.length === received.length &&
+    crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(received))
   );
 }
 
@@ -524,7 +604,8 @@ app.post(
   express.raw({ type: "application/json" }),
   (req, res) => {
     const valid = verifyWebhook(
-      req.body,
+      req.body.toString(),
+      req.headers["x-scheducal-timestamp"],
       req.headers["x-scheducal-signature"],
       process.env.SCHEDUCAL_WEBHOOK_SECRET
     );
@@ -553,10 +634,24 @@ app.post(
 
 | Action | Method | Endpoint |
 |--------|--------|----------|
-| List webhooks | GET | `/api/v1/webhooks?apiKey=...&apiSecret=...` |
+| List webhooks | GET | `/api/v1/webhooks` |
 | Update webhook | PATCH | `/api/v1/webhooks/{webhookId}` |
-| Delete webhook | DELETE | `/api/v1/webhooks/{webhookId}?apiKey=...&apiSecret=...` |
+| Delete webhook | DELETE | `/api/v1/webhooks/{webhookId}` |
 | Regenerate secret | POST | `/api/v1/webhooks/{webhookId}/regenerate-secret` |
+
+All of them authenticate with the `Authorization` header, like every other endpoint:
+
+```bash
+# List webhooks
+curl https://api.scheducal.com/api/v1/webhooks \
+  -u "$API_KEY:$API_SECRET"
+
+# Delete a webhook
+curl -X DELETE https://api.scheducal.com/api/v1/webhooks/49856464-9c29-43b0-ad45-a8a9812d82bf \
+  -u "$API_KEY:$API_SECRET"
+```
+
+The [Webhooks Guide](webhooks.md) documents each request and response.
 
 ---
 
@@ -566,14 +661,13 @@ ScheduCal uses standard HTTP status codes. Error responses include a JSON body.
 
 ### Error response format
 
+`success` is `false` and `error` holds a human-readable message:
+
 ```json
 {
   "success": false,
-  "message": "end must be after start",
-  "error": {
-    "code": "invalid_time_range",
-    "param": "appointmentEnd"
-  }
+  "error": "Invalid API key or secret",
+  "apiVersion": "v1"
 }
 ```
 
@@ -583,25 +677,25 @@ ScheduCal uses standard HTTP status codes. Error responses include a JSON body.
 |--------|---------|
 | `200` | Success |
 | `201` | Created |
-| `400` | Bad request — check `error.code` and `error.param` |
-| `401` | Unauthorized — missing or invalid credentials |
+| `400` | Bad request — the `error` message names the problem |
+| `401` | Unauthorized — missing, malformed, or invalid credentials |
+| `403` | Forbidden — valid credentials, but the account is suspended |
 | `404` | Not found — appointment ID does not exist or was already cancelled |
-| `409` | Conflict — e.g. duplicate request detected |
-| `422` | Unprocessable — request was valid JSON but failed validation |
+| `409` | Conflict — e.g. the appointment is already cancelled |
 | `429` | Rate limited — back off and retry |
 | `500` | Server error — retry with exponential backoff |
+| `503` | Service temporarily unavailable — retry with exponential backoff |
 
-### Common error codes
+### Authentication error messages
 
-| Code | Description | Fix |
-|------|-------------|-----|
-| `invalid_time_range` | `appointmentEnd` is before or equal to `appointmentStart` | Ensure end is after start |
-| `missing_required_field` | A required field was not provided | Check required fields for the endpoint |
-| `invalid_email` | An email address is malformed | Check address values |
-| `appointment_not_found` | The appointment ID does not exist | Verify the ID; it may have been cancelled |
-| `appointment_already_cancelled` | Attempting to update or cancel an already-cancelled appointment | No action needed |
-| `invalid_credentials` | API key or secret is missing, malformed, or revoked | Check your credentials in the dashboard |
-| `rate_limit_exceeded` | Too many requests in a short window | Back off and retry after `Retry-After` header |
+| Status | `error` message | Fix |
+|--------|-----------------|-----|
+| `401` | `API credentials are required. Send Authorization: Basic base64(apiKey:apiSecret)` | Send the `Authorization` header |
+| `401` | `Malformed Authorization header. Send Authorization: Basic base64(apiKey:apiSecret)` | Use the `Basic` scheme with Base64 of `apiKey:apiSecret`; send the header once |
+| `401` | `Invalid API key or secret` | Check your credentials in the dashboard |
+| `403` | `This account is suspended. Its credentials are valid, but API access is disabled.` | Contact support@scheducal.com |
+
+Every `401` includes the response header `WWW-Authenticate: Basic realm="ScheduCal"`. A `403` is returned only after the key and secret have been verified, so it never reveals anything to a caller without valid credentials.
 
 ### Rate limits
 
@@ -616,7 +710,7 @@ When rate limited, the response includes a `Retry-After` header with the number 
 
 ## SDK Support
 
-Official SDKs are planned for Node.js and Python. Until then, the REST API works directly with any HTTP client — the examples throughout this documentation use `curl` and the browser `fetch` API.
+Official SDKs are planned for Node.js and Python. Until then, the REST API works directly with any HTTP client — the examples throughout this documentation use `curl` and Node.js `fetch`, and [Authentication](#authentication) also shows Python `requests` and C# `HttpClient`.
 
 ---
 
