@@ -4,7 +4,7 @@
 
 ScheduCal Webhooks allow your application to receive real-time notifications when calendar events change. When an attendee responds to a meeting invitation (accepts, declines, or tentatively accepts), ScheduCal will send an HTTP POST request to your registered webhook URL.
 
-Every request in this guide authenticates with HTTP Basic authentication: your API key as the username and your API secret as the password (`Authorization: Basic base64(apiKey:apiSecret)`). The curl examples use `-u "$API_KEY:$API_SECRET"`; see [Authentication](api-reference.md#authentication) for other languages and for the `401`/`403` responses. Sending `apiKey` and `apiSecret` in the request body is deprecated: it still works for now, but will be removed.
+Every request in this guide authenticates with HTTP Basic authentication: your API key as the username and your API secret as the password (`Authorization: Basic base64(apiKey:apiSecret)`). The curl examples use `-u "$API_KEY:$API_SECRET"`; see [Authentication](api-reference.md#authentication) for other languages and for the `401`/`403` responses. Credentials in the request body are no longer accepted.
 
 ---
 

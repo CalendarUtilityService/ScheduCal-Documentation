@@ -32,7 +32,7 @@ curl -X POST "https://api.scheducal.com/api/v1/appointments" \
   }'
 ```
 
-See [Authentication](api-reference.md#authentication) for Node.js, Python and C# examples. Sending `apiKey` and `apiSecret` in the JSON request body is deprecated: it still works for now, but will be removed.
+See [Authentication](api-reference.md#authentication) for Node.js, Python and C# examples. Credentials in the JSON request body (`apiKey`, `apiSecret`) are no longer accepted; requests that send them without the header get `401`.
 
 ## Support
 
