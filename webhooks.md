@@ -88,8 +88,10 @@ X-ScheduCal-Delivery: 7c9e6679-7425-40de-944b-e07fc1f90ae7
 |------------|-------------|
 | `attendee.responded` | An attendee accepted, declined, or tentatively accepted the invitation |
 | `attendee.proposed_new_time` | **Coming soon: not sent yet.** An attendee proposed an alternative meeting time |
-| `appointment.updated` | The appointment's time, location, or subject was changed |
-| `appointment.canceled` | The appointment was canceled |
+| `appointment.updated` | The appointment was changed with `PUT /v1/appointments/{id}`. It isn't triggered any other way |
+| `appointment.canceled` | The appointment was cancelled with `DELETE /v1/appointments/{id}`. Carries `appointmentId`, `subject`, `start`, `end` and `timeZone` |
+
+`appointment.updated` and `appointment.canceled` come only from API calls. If an appointment is removed any other way (for example, when an attendee's or the account's data is erased), no `appointment.canceled` is sent.
 
 ---
 
@@ -252,8 +254,8 @@ All webhook deliveries follow this structure:
   "data": {
     "appointmentId": "ScheduCal appointment ID",
     "subject": "Meeting subject",
-    "start": "Start time (ISO 8601)",
-    "end": "End time (ISO 8601)",
+    "start": "Start, wall-clock in timeZone (yyyy-MM-ddTHH:mm:ss, no Z or offset)",
+    "end": "End, wall-clock in timeZone (yyyy-MM-ddTHH:mm:ss, no Z or offset)",
     "timeZone": "IANA timezone",
     "attendee": {
       "email": "Attendee email",
@@ -266,6 +268,8 @@ All webhook deliveries follow this structure:
   }
 }
 ```
+
+In every payload, `start` and `end` are wall-clock times in the appointment's `timeZone`, formatted `yyyy-MM-ddTHH:mm:ss` with no `Z` or offset.
 
 `attendee` is set only on attendee events; on other events it is `null`. Until `attendee.proposed_new_time` is sent, `proposedStart` and `proposedEnd` are `null`.
 

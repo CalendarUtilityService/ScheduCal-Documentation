@@ -408,6 +408,10 @@ DELETE /api/v1/appointments/{appointmentId}
 
 Cancels the appointment and notifies all invitees. The event is removed from attendees' calendars. This action is irreversible — to reschedule, create a new appointment.
 
+Cancelling sends `appointment.canceled` to subscribed webhooks.
+
+If the cancellation can't be made in the calendar system, the call returns an error and the appointment stays active. It is safe to retry. The call never returns `200` when nothing was cancelled.
+
 ### Request
 
 ```bash
@@ -420,6 +424,8 @@ curl -X DELETE https://api.scheducal.com/api/v1/appointments/AAMkAGI2... \
 ```
 
 ### Request Body
+
+The body is optional; a `DELETE` with no body is valid.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
@@ -514,12 +520,14 @@ curl -X POST https://api.scheducal.com/api/v1/webhooks \
 |-------|------------|
 | `attendee.responded` | An attendee accepts, declines, or marks the invitation as tentative |
 | `attendee.proposed_new_time` | **Coming soon: not sent yet.** An attendee proposes an alternate meeting time |
-| `appointment.updated` | The appointment time, location, or subject was changed |
-| `appointment.canceled` | The appointment was cancelled via API or dashboard |
+| `appointment.updated` | The appointment was changed with `PUT /v1/appointments/{id}`. It isn't triggered any other way |
+| `appointment.canceled` | The appointment was cancelled with `DELETE /v1/appointments/{id}`. Carries `appointmentId`, `subject`, `start`, `end` and `timeZone` |
+
+`appointment.updated` and `appointment.canceled` come only from API calls. If an appointment is removed any other way (for example, when an attendee's or the account's data is erased), no `appointment.canceled` is sent.
 
 ### Webhook payload
 
-All events share a common envelope:
+All events share a common envelope. In every payload, `start` and `end` are wall-clock times in the appointment's `timeZone`, formatted `yyyy-MM-ddTHH:mm:ss` with no `Z` or offset.
 
 ```json
 {
@@ -680,7 +688,7 @@ ScheduCal uses standard HTTP status codes. Error responses include a JSON body.
 | `400` | Bad request — the `error` message names the problem |
 | `401` | Unauthorized — missing, malformed, or invalid credentials |
 | `403` | Forbidden — valid credentials, but the account is suspended |
-| `404` | Not found — appointment ID does not exist or was already cancelled |
+| `404` | Not found — appointment ID does not exist |
 | `409` | Conflict — e.g. the appointment is already cancelled |
 | `429` | Rate limited — back off and retry |
 | `500` | Server error — retry with exponential backoff |
