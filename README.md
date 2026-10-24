@@ -14,21 +14,25 @@ ScheduCal is a **fully managed calendar invitation service** built on Microsoft 
 ## Quick Start
 
 1. Register at [scheducal.com](https://scheducal.com) to get your API credentials
-2. Use your `apiKey` and `apiSecret` in all API requests
+2. Authenticate every request with HTTP Basic authentication: your API key as the username and your API secret as the password (`Authorization: Basic base64(apiKey:apiSecret)`). With curl, that is `-u "$API_KEY:$API_SECRET"`
 3. Start creating appointments!
 
 ```bash
+export API_KEY="your-api-key"
+export API_SECRET="your-api-secret"
+
 curl -X POST "https://api.scheducal.com/api/v1/appointments" \
+  -u "$API_KEY:$API_SECRET" \
   -H "Content-Type: application/json" \
   -d '{
-    "apiKey": "your-api-key",
-    "apiSecret": "your-api-secret",
     "appointmentSubject": "Team Meeting",
     "appointmentStart": "2026-01-15T10:00:00",
     "appointmentEnd": "2026-01-15T11:00:00",
     "appointmentTimeZone": "America/Los_Angeles"
   }'
 ```
+
+See [Authentication](api-reference.md#authentication) for Node.js, Python and C# examples. Sending `apiKey` and `apiSecret` in the JSON request body is deprecated: it still works for now, but will be removed.
 
 ## Support
 
