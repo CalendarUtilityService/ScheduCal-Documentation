@@ -171,9 +171,9 @@ Every `401` response carries a `WWW-Authenticate: Basic realm="ScheduCal"` heade
 
 When an `Authorization` header is present, it is the only credential ScheduCal reads: a wrong or malformed header returns `401` even if the request body also contains credentials.
 
-### Deprecated: credentials in the request body
+### Removed: credentials in the request body
 
-Earlier versions of this API took `apiKey` and `apiSecret` as fields in the JSON request body. Requests without an `Authorization` header that still send them are accepted for now, but this is deprecated and will be removed. Move to the `Authorization` header. The webhook list and delete endpoints (`GET` and `DELETE`) have no request body and accept only the header.
+Earlier versions of this API took `apiKey` and `apiSecret` as fields in the JSON request body. That is no longer accepted: a request without an `Authorization` header that sends them gets `401`, whether or not they are valid. Send the `Authorization` header instead.
 
 ---
 
@@ -699,6 +699,7 @@ ScheduCal uses standard HTTP status codes. Error responses include a JSON body.
 | Status | `error` message | Fix |
 |--------|-----------------|-----|
 | `401` | `API credentials are required. Send Authorization: Basic base64(apiKey:apiSecret)` | Send the `Authorization` header |
+| `401` | `Credentials in the request body are no longer accepted. Send Authorization: Basic base64(apiKey:apiSecret)` | Move the key and secret from the body to the `Authorization` header |
 | `401` | `Malformed Authorization header. Send Authorization: Basic base64(apiKey:apiSecret)` | Use the `Basic` scheme with Base64 of `apiKey:apiSecret`; send the header once |
 | `401` | `Invalid API key or secret` | Check your credentials in the dashboard |
 | `403` | `This account is suspended. Its credentials are valid, but API access is disabled.` | Contact support@scheducal.com |
