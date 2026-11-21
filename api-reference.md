@@ -694,6 +694,19 @@ ScheduCal uses standard HTTP status codes. Error responses include a JSON body.
 | `500` | Server error — retry with exponential backoff |
 | `503` | Service temporarily unavailable — retry with exponential backoff |
 
+### Partial success: `warning`
+
+A success response can carry a `warning` string inside `data`. It means the change reached the calendar, and any invitation or cancellation was sent, but ScheduCal could not record it. The status stays `200` or `201` because a retry would email your attendees a second time.
+
+**Don't retry a response that carries `warning`.** Log it, and when it asks you to, contact support@scheducal.com with the appointment ID.
+
+| Endpoint | When |
+|----------|------|
+| Create Appointment, Send Invitation | The new calendar event could not be recorded. Later updates and the cancellation may not reach that attendee, and their responses may not be reported. |
+| Send Invitation, Update Appointment, Cancel Appointment | The appointment's own record could not be updated after the change was sent. |
+
+The field is absent when there is nothing to warn about.
+
 ### Authentication error messages
 
 | Status | `error` message | Fix |
