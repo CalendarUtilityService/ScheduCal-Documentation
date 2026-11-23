@@ -689,7 +689,7 @@ ScheduCal uses standard HTTP status codes. Error responses include a JSON body.
 | `401` | Unauthorized — missing, malformed, or invalid credentials |
 | `403` | Forbidden — valid credentials, but the account is suspended |
 | `404` | Not found — appointment ID does not exist |
-| `409` | Conflict — e.g. the appointment is already cancelled |
+| `409` | Conflict — e.g. the appointment is already cancelled. From Create Appointment it can also mean the invitation went out but couldn't be recorded (below): don't retry |
 | `429` | Rate limited — back off and retry |
 | `500` | Server error — retry with exponential backoff |
 | `503` | Service temporarily unavailable — retry with exponential backoff |
@@ -706,6 +706,21 @@ A success response can carry a `warning` string inside `data`. It means the chan
 | Send Invitation, Update Appointment, Cancel Appointment | The appointment's own record could not be updated after the change was sent. |
 
 The field is absent when there is nothing to warn about.
+
+### Create Appointment: the invitation went out but the appointment couldn't be saved
+
+Create Appointment sends the initial attendee's invitation before it saves the appointment. If the save
+fails, ScheduCal cancels the event, so a retry can't invite them twice. The attendee receives a
+cancellation saying the invitation was sent in error.
+
+| Status | `error` begins | What to do |
+|--------|----------------|------------|
+| `503` | `The appointment could not be saved, so its invitation was withdrawn` | Retry with backoff. Nothing was created. |
+| `409` | `The calendar event was created and any invitation sent, but the appointment could not be saved or withdrawn` | **Don't retry.** Contact support@scheducal.com with `data.appointmentId`. |
+| `409` | `The appointment was created and its invitation sent, but the response could not be completed` | **Don't retry.** Contact support@scheducal.com with `data.appointmentId`. |
+
+These are `409`, not `5xx`, on purpose: retry libraries commonly retry every `5xx`, and a retry here
+would send the attendee a second invitation.
 
 ### Authentication error messages
 
