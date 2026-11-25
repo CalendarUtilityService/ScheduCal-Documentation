@@ -524,7 +524,7 @@ curl -X POST https://api.scheducal.com/api/v1/webhooks \
 
 `appointment.updated` and `appointment.canceled` come only from API calls. If an appointment is removed any other way (for example, when an attendee's or the account's data is erased), no `appointment.canceled` is sent.
 
-**Proposed new times:** ScheduCal invitations disallow "propose a new time". Outlook doesn't offer it, but Google Calendar does, and the proposal still reaches ScheduCal. ScheduCal ignores the proposed time: it never changes the appointment and sends no webhook about it. Exchange records a Google proposal as a tentative reply, so if the attendee wasn't already tentative you receive `attendee.responded` with `tentativelyaccepted`. If an attendee needs a different time, move the appointment with `PUT /v1/appointments/{id}`; everyone receives the updated invitation.
+**Proposed new times:** ScheduCal invitations disallow "propose a new time". Outlook doesn't offer it, but Google Calendar does, and the proposal still reaches ScheduCal. ScheduCal ignores the proposed time: it never changes the appointment and sends no webhook about it. What a Google proposal does to the attendee's reply depends on how they had answered: from an attendee who hadn't answered, it arrives as `attendee.responded` with `tentativelyaccepted`; from one who had already accepted, it changes nothing and no webhook is sent. If an attendee needs a different time, move the appointment with `PUT /v1/appointments/{id}`; everyone receives the updated invitation.
 
 ### Webhook payload
 
