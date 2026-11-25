@@ -87,11 +87,12 @@ X-ScheduCal-Delivery: 7c9e6679-7425-40de-944b-e07fc1f90ae7
 | Event Type | Description |
 |------------|-------------|
 | `attendee.responded` | An attendee accepted, declined, or tentatively accepted the invitation |
-| `attendee.proposed_new_time` | **Coming soon: not sent yet.** An attendee proposed an alternative meeting time |
 | `appointment.updated` | The appointment was changed with `PUT /v1/appointments/{id}`. It isn't triggered any other way |
 | `appointment.canceled` | The appointment was cancelled with `DELETE /v1/appointments/{id}`. Carries `appointmentId`, `subject`, `start`, `end` and `timeZone` |
 
 `appointment.updated` and `appointment.canceled` come only from API calls. If an appointment is removed any other way (for example, when an attendee's or the account's data is erased), no `appointment.canceled` is sent.
+
+**Proposed new times:** ScheduCal invitations disallow "propose a new time". Outlook doesn't offer it, but Google Calendar does, and the proposal still reaches ScheduCal. ScheduCal ignores the proposed time: it never changes the appointment and sends no webhook about it. What a Google proposal does to the attendee's reply depends on how they had answered: from an attendee who hadn't answered, it arrives as `attendee.responded` with `tentativelyaccepted`; from one who had already accepted, it changes nothing and no webhook is sent. If an attendee needs a different time, move the appointment with `PUT /v1/appointments/{id}`; everyone receives the updated invitation. `attendee.proposed_new_time`, once listed as coming soon, is retired: it is never sent, and registering it still succeeds.
 
 ---
 
@@ -261,9 +262,7 @@ All webhook deliveries follow this structure:
       "email": "Attendee email",
       "name": "Attendee name (if available)",
       "response": "accepted | declined | tentativelyaccepted",
-      "respondedAt": "When they responded (ISO 8601)",
-      "proposedStart": "Proposed new start (coming soon: not sent yet)",
-      "proposedEnd": "Proposed new end (coming soon: not sent yet)"
+      "respondedAt": "When they responded (ISO 8601)"
     }
   }
 }
@@ -271,7 +270,7 @@ All webhook deliveries follow this structure:
 
 In every payload, `start` and `end` are wall-clock times in the appointment's `timeZone`, formatted `yyyy-MM-ddTHH:mm:ss` with no `Z` or offset.
 
-`attendee` is set only on attendee events; on other events it is `null`. Until `attendee.proposed_new_time` is sent, `proposedStart` and `proposedEnd` are `null`.
+`attendee` is set only on attendee events; on other events it is `null`.
 
 ---
 

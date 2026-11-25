@@ -51,7 +51,7 @@ curl -X POST https://api.scheducal.com/api/v1/appointments \
   }'
 ```
 
-The recipient receives a calendar invitation in their inbox. They can accept, decline, or propose a new time — all from their existing calendar app.
+The recipient receives a calendar invitation in their inbox. They can accept, decline or tentatively accept, all from their existing calendar app.
 
 ### 3. Set up your webhook
 
@@ -183,8 +183,8 @@ ScheduCal is built on **Microsoft Exchange**, accessed via the **Microsoft Graph
 
 1. ScheduCal creates a calendar event in Exchange via the Graph API
 2. Exchange delivers a standards-compliant calendar invitation to each attendee's inbox
-3. Your attendee accepts, declines, or proposes a new time from any calendar app
-4. ScheduCal surfaces accepts, declines and tentative responses through your webhook (proposed new times are coming soon)
+3. Your attendee accepts, declines or tentatively accepts from any calendar app
+4. ScheduCal surfaces accepts, declines and tentative responses through your webhook
 
 Exchange handles the complete meeting lifecycle — invite, update, cancel — using correct RFC 5545 ICS semantics (UID persistence, SEQUENCE incrementing, `METHOD:CANCEL`). Your attendees receive a native calendar event, not an email with an attachment.
 
@@ -519,11 +519,12 @@ curl -X POST https://api.scheducal.com/api/v1/webhooks \
 | Event | Fired when |
 |-------|------------|
 | `attendee.responded` | An attendee accepts, declines, or marks the invitation as tentative |
-| `attendee.proposed_new_time` | **Coming soon: not sent yet.** An attendee proposes an alternate meeting time |
 | `appointment.updated` | The appointment was changed with `PUT /v1/appointments/{id}`. It isn't triggered any other way |
 | `appointment.canceled` | The appointment was cancelled with `DELETE /v1/appointments/{id}`. Carries `appointmentId`, `subject`, `start`, `end` and `timeZone` |
 
 `appointment.updated` and `appointment.canceled` come only from API calls. If an appointment is removed any other way (for example, when an attendee's or the account's data is erased), no `appointment.canceled` is sent.
+
+**Proposed new times:** ScheduCal invitations disallow "propose a new time". Outlook doesn't offer it, but Google Calendar does, and the proposal still reaches ScheduCal. ScheduCal ignores the proposed time: it never changes the appointment and sends no webhook about it. What a Google proposal does to the attendee's reply depends on how they had answered: from an attendee who hadn't answered, it arrives as `attendee.responded` with `tentativelyaccepted`; from one who had already accepted, it changes nothing and no webhook is sent. If an attendee needs a different time, move the appointment with `PUT /v1/appointments/{id}`; everyone receives the updated invitation.
 
 ### Webhook payload
 
@@ -551,20 +552,7 @@ All events share a common envelope. In every payload, `start` and `end` are wall
 }
 ```
 
-For `attendee.proposed_new_time` events (coming soon: not sent yet), the `attendee` object will also include:
-
-```json
-{
-  "attendee": {
-    "name": "John Doe",
-    "email": "john@acmecorp.com",
-    "response": "tentativelyAccepted",
-    "respondedAt": "2026-04-15T09:03:44Z",
-    "proposedStart": "2026-04-15T11:00:00",
-    "proposedEnd": "2026-04-15T12:00:00"
-  }
-}
-```
+`response` is one of `accepted`, `declined` or `tentativelyaccepted`.
 
 ### Confirming receipt
 
