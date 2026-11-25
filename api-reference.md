@@ -504,7 +504,7 @@ curl -X POST https://api.scheducal.com/api/v1/webhooks \
   "data": {
     "webhookId": "49856464-9c29-43b0-ad45-a8a9812d82bf",
     "webhookUrl": "https://yourapp.com/webhooks/scheducal",
-    "secret": "aujHqc8fuw/dBx6quWO8d92hlHGsrsuOAXXmx2YFDc0=",
+    "secret": "<your-webhook-secret>",
     "eventTypes": ["attendee.responded", "appointment.updated", "appointment.canceled"],
     "isActive": true,
     "dateCreated": "2026-03-19T14:23:01Z"
